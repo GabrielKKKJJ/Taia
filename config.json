@@ -1,0 +1,37 @@
+{
+  "baseUrl": "https://lms.jala.university",
+  "aluno": "Djordan Gabriel Bezerra Moura",
+  "pastaEntregas": "entregas",
+  "template": "templates/template-relatorio.docx",
+
+  "janela": {
+    "diasAtras": 3,
+    "diasFrente": 14
+  },
+
+  "limites": {
+    "maxArquivosPorAtividade": 15,
+    "maxMbPorArquivo": 40
+  },
+
+  "cursos": {
+    "_comentario": "Rode 'npm run cursos' para listar os IDs e preencher os apelidos. 'incluir' vazio = todos os cursos ativos.",
+    "incluir": [],
+    "ignorar": ["722"],
+    "apelidos": {
+      "515": "Competências Essenciais",
+      "1065": "Programação 6",
+      "1066": "Arquitetura de Software 2",
+      "1067": "IoT",
+      "1134": "ESP Special Lab M13"
+    }
+  },
+
+  "ignorarTipos": ["Quiz"],
+
+  "_ignorarTarefas": "IDs de tarefas ja entregues fora do Canvas, que a API continua marcando como pendentes.",
+  "ignorarTarefas": ["24712"],
+
+  "_modo": "final = texto pronto para submeter | rascunho = material de estudo para reescrever | roteiro = so o plano, sem a resposta",
+  "modo": "final"
+}

@@ -1,0 +1,19 @@
+{
+  "name": "taia",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Automacao das atividades semanais do Canvas da Jala University",
+  "scripts": {
+    "cursos": "node scripts/cursos.js",
+    "coletar": "node scripts/coletar.js",
+    "relatorio": "node scripts/relatorio.js",
+    "teste": "node scripts/autoteste.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "mermaid": "^11.16.1",
+    "puppeteer-core": "^25.7.0"
+  }
+}

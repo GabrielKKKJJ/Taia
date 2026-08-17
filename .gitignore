@@ -1,0 +1,14 @@
+# Credenciais — NUNCA versionar (contem o token do Canvas)
+.env
+
+node_modules/
+logs/
+*.zip
+~$*.docx
+
+# Material baixado do Canvas (slides e PDFs da faculdade).
+# Fica fora do repositorio: e conteudo da instituicao e se recupera com `npm run coletar`.
+entregas/**/_contexto/
+
+# Fila da rodada: regenerada a cada coleta
+entregas/_fila.json

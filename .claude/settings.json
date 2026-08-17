@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node scripts/coletar.js:*)",
+      "Bash(node scripts/relatorio.js:*)",
+      "Bash(node scripts/cursos.js:*)",
+      "Bash(node --check:*)",
+      "Read",
+      "Glob",
+      "Grep"
+    ],
+    "deny": [
+      "Read(./.env)"
+    ]
+  }
+}
