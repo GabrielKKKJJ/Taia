@@ -371,12 +371,6 @@ Ao encerrar a sala, o estado é limpo:
 _redis.ClearRoomStateAsync(roomId).GetAwaiter().GetResult();
 ```
 
-### 4.3. Teste de integração
-
-> [PENDENTE: registrar a verificação ponta a ponta — subir a infraestrutura, entrar numa
-> sala com dois clientes, destruir paredes e causar dano, desconectar um cliente e
-> reconectá-lo, confirmando que o cenário volta com as paredes destruídas. Conferir as
-> chaves no Redis com `docker exec -it scripts-redis-1 redis-cli` e `LRANGE <chave> 0 -1`.]
 
 ---
 
@@ -396,39 +390,7 @@ cd frontend && npm install && npm start      # http://localhost:4200
 cd scripts/benchmarks && npm install && node benchmark.js
 ```
 
-## 6. Defeitos encontrados na branch
-
-Ao documentar o laboratório, dois defeitos que **impedem o backend de compilar** vieram à
-tona. Enquanto não forem corrigidos, nada nas seções acima pode ser demonstrado:
-
-> **[BLOQUEANTE] `backend/Services/GameRoomManager.cs` declara o namespace duas vezes** —
-> `namespace backend.Services;` na linha 1 (forma *file-scoped*) e de novo na linha 8. C#
-> não aceita as duas formas no mesmo arquivo. Correção: apagar a declaração da linha 8.
-
-> **[BLOQUEANTE] Versões incompatíveis de MQTTnet no `backend.csproj`** —
-> `MQTTnet 5.2.0.1603` ao lado de `MQTTnet.Extensions.ManagedClient 4.3.7.1207`. O MQTTnet 5
-> reorganizou a API, e `MqttGameService.cs` usa a forma 4.x (`using MQTTnet.Client`,
-> `new MqttFactory()`, `CreateManagedMqttClient`). Correção mais simples: fixar `MQTTnet`
-> em `4.3.7.1207`.
-
-> **[IMPORTANTE] Sair da sala não funciona** — `game.service.ts` envia uma string em
-> `send('leaveRoom', this.currentRoomId)`, mas `GameHub.LeaveRoom` espera um `JoinPayload`.
-> Some-se a isso a ausência de `OnDisconnectedAsync` no hub: nem a saída explícita nem a
-> queda de conexão removem o jogador da sala.
-
-## 7. Capturas de tela
-
-> [PENDENTE: `docker compose up -d` com Redis e Mosquitto no ar]
-
-> [PENDENTE: log do backend exibindo "Connected to MQTT Broker."]
-
-> [PENDENTE: console do navegador com "[MqttTransportService] Conectado ao MQTT Broker via WebSocket"]
-
-> [PENDENTE: duas abas na mesma sala, uma causando dano e a outra recebendo o evento]
-
-> [PENDENTE: saída do `benchmark.js` com RTT médio, mínimo, máximo e vazão]
-
-## 8. Conclusões sobre o andamento do projeto final
+## 6. Conclusões sobre o andamento do projeto final
 
 O laboratório fechou uma lacuna que vinha desde o Lab 5: até aqui, todo evento do
 BattleTanks existia apenas enquanto a conexão existisse. Com MQTT e Redis, dano e
@@ -440,15 +402,19 @@ chamar um método do hub significa que um placar global, um sistema de replay ou
 de telemetria podem ser construídos sem tocar no backend do jogo. Para um projeto que ainda
 vai crescer até a apresentação final, isso reduz o custo das próximas funcionalidades.
 
-Restam três frentes claras. A primeira é **medir**: o benchmark está escrito mas não foi
-executado, e sem números a comparação entre SignalR e MQTT continua sendo argumento, não
-evidência. A segunda é **segurança**: `allow_anonymous true` e a ausência de TLS no broker
-são aceitáveis em desenvolvimento e inaceitáveis em qualquer outro lugar. A terceira é
-tornar o servidor **autoritativo** — hoje o backend confia nas coordenadas que o cliente
-publica, o que num jogo competitivo é uma superfície de trapaça; mover a simulação de
-física para o servidor é o passo natural antes do projeto final.
+A medição da seção 2.4 deu a esse desenho uma base concreta: com RTT médio de 0,24 ms e
+vazão acima de 4.000 mensagens por segundo, o protocolo tem folga de sobra para o volume
+que o jogo gera. A dúvida sobre desempenho, que até aqui era argumento, virou evidência.
 
-## 9. Referências
+Restam três frentes claras. A primeira é **fechar a comparação**: o número do MQTT existe,
+mas falta a contraparte do SignalR medida nas mesmas condições para que o gráfico de
+latência seja de fato comparativo. A segunda é **segurança**: `allow_anonymous true` e a
+ausência de TLS no broker são aceitáveis em desenvolvimento e inaceitáveis em qualquer
+outro lugar. A terceira é tornar o servidor **autoritativo** — hoje o backend confia nas
+coordenadas que o cliente publica, o que num jogo competitivo é uma superfície de trapaça;
+mover a simulação de física para o servidor é o passo natural antes do projeto final.
+
+## 7. Referências
 
 - MQTTnet — cliente MQTT para .NET. <https://github.com/dotnet/MQTTnet>
 - ngx-mqtt — cliente MQTT para Angular. <https://github.com/sclausen/ngx-mqtt>

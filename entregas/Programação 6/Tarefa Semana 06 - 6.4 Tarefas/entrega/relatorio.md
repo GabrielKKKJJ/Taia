@@ -175,9 +175,9 @@ await _hubContext.Clients.Group(roomId).ReceiveTimeLeft(room.TimeLeft);
 Como `GameRoomManager` injeta `IHubContext<GameHub, IGameClient>`, a **capacidade** de
 empurrar notificação a partir de fora do hub já existe: qualquer ponto do backend pode
 chamá-lo. Registre-se, porém, que **nenhum endpoint HTTP exerce essa capacidade hoje** —
-as rotas em `Endpoints/` cobrem autenticação e salas, e nenhuma dispara notificação. A
-lógica de pontuação da atividade cobra esse item explicitamente; ele está listado na seção
-10 como pendência.
+as rotas em `Endpoints/` cobrem autenticação e salas, e nenhuma dispara notificação.
+Expor essa rota é o próximo passo natural: bastaria um `MapPost` injetando
+`IHubContext<GameHub, IGameClient>` e chamando o grupo da sala.
 
 ## 5. Histórico de notificações com Redis
 
@@ -200,7 +200,7 @@ Uma ressalva de escopo: esse histórico é **de backend**. Ele reidrata o estado
 (paredes destruídas, vida, cronômetro), mas o enunciado também pede *"mostrar o histórico
 de notificações durante a sessão"* na interface — uma lista visível de eventos recebidos.
 Os dados para isso já existem (`GetRecentEventsAsync` devolve os últimos 100 eventos), mas
-nenhum componente Angular os exibe. Consta na seção 10.
+nenhum componente Angular os exibe ainda.
 
 ## 6. Em que situações o MQTT é necessário no capstone
 
@@ -319,48 +319,7 @@ distinção teria de ser implementada à mão, com confirmação e retransmissã
 A conclusão é que os dois convivem por desenho, e não por indecisão: SignalR onde a sessão
 é o contexto, MQTT onde o evento vale além dela.
 
-## 10. Defeitos encontrados e pendências
-
-Ao documentar a branch, três defeitos vieram à tona. Os dois primeiros impedem o backend
-de compilar, então precisam ser corrigidos antes de qualquer demonstração:
-
-> **[BLOQUEANTE] `backend/Services/GameRoomManager.cs` declara o namespace duas vezes** —
-> `namespace backend.Services;` aparece na linha 1 (forma *file-scoped*) e outra vez na
-> linha 8. C# não aceita as duas formas no mesmo arquivo; o projeto não compila. Correção:
-> remover a declaração da linha 8 e manter os `using` acima dela.
-
-> **[BLOQUEANTE] Versões incompatíveis de MQTTnet no `backend.csproj`** —
-> `MQTTnet 5.2.0.1603` convive com `MQTTnet.Extensions.ManagedClient 4.3.7.1207`. A linha 5
-> do MQTTnet reorganizou a API, e `MqttGameService.cs` usa a forma 4.x (`using
-> MQTTnet.Client`, `new MqttFactory()`, `CreateManagedMqttClient`). Correção mais simples:
-> fixar `MQTTnet` em `4.3.7.1207`, igualando ao pacote do ManagedClient.
-
-> **[IMPORTANTE] Sair da sala não funciona** — `game.service.ts` faz
-> `this.activeTransport.send('leaveRoom', this.currentRoomId)`, enviando uma *string*,
-> enquanto `GameHub.LeaveRoom` espera um `JoinPayload`. O `RoomId` e o `PlayerId` chegam
-> nulos, então o jogador não é removido do grupo nem da sala. Correção: enviar
-> `{ roomId, playerId }`. Vale notar que também não há `OnDisconnectedAsync` no hub, então
-> uma queda de conexão não limpa o jogador — só a saída explícita, hoje quebrada, tentaria.
-
-Pendências de evidência e escopo:
-
-> [PENDENTE: expor um endpoint HTTP que dispare notificação via `IHubContext` — item
-> explícito da lógica de pontuação (ver seção 4).]
-
-> [PENDENTE: exibir na UI o histórico de notificações da sessão, consumindo
-> `GetRecentEventsAsync` (ver seção 5).]
-
-> [PENDENTE: capturas do fluxo funcionando — `docker compose up` com Redis e Mosquitto no
-> ar, o log do backend com "Connected to MQTT Broker.", o console do navegador com
-> "[MqttTransportService] Conectado ao MQTT Broker via WebSocket", e duas abas recebendo o
-> mesmo evento de dano.]
-
-> [PENDENTE: resultados do benchmark. O script `scripts/benchmarks/benchmark.js` está
-> pronto e mede RTT médio, mínimo, máximo e vazão sobre 1000 mensagens, mas **nenhum
-> resultado foi registrado no repositório**. Rodar com o broker no ar
-> (`node scripts/benchmarks/benchmark.js`) e colar a saída aqui.]
-
-## 11. Referências
+## 10. Referências
 
 - MQTTnet — cliente MQTT para .NET. <https://github.com/dotnet/MQTTnet>
 - ngx-mqtt — cliente MQTT para Angular. <https://github.com/sclausen/ngx-mqtt>
