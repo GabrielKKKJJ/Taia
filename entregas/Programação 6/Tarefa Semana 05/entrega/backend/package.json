@@ -1,0 +1,16 @@
+{
+  "name": "notificacoes-backend",
+  "version": "1.0.0",
+  "description": "Servidor de notificacoes em tempo real com Express e Socket.IO",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}

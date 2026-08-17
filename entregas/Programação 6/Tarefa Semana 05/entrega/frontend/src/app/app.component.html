@@ -1,0 +1,72 @@
+<main>
+  <header>
+    <h1>Notificações em tempo real</h1>
+    <div class="status">
+      <span class="pill" [class.on]="svc.conectado()">
+        {{ svc.conectado() ? 'conectado' : 'desconectado' }}
+      </span>
+      <span class="pill neutro">{{ svc.online() }} online</span>
+    </div>
+  </header>
+
+  <p class="erro" *ngIf="svc.erro() as e">{{ e }}</p>
+
+  <section class="disparo">
+    <h2>Disparar notificação</h2>
+    <div class="campos">
+      <input [(ngModel)]="titulo" placeholder="Título" aria-label="Título" />
+      <input [(ngModel)]="mensagem" placeholder="Mensagem" aria-label="Mensagem"
+             (keyup.enter)="enviarViaRest()" />
+      <select [(ngModel)]="nivel" aria-label="Nível">
+        <option value="info">info</option>
+        <option value="sucesso">sucesso</option>
+        <option value="alerta">alerta</option>
+        <option value="erro">erro</option>
+      </select>
+    </div>
+    <div class="botoes">
+      <button (click)="enviarViaRest()" [disabled]="!mensagem.trim()">
+        Enviar via POST /notify
+      </button>
+      <button class="secundario" (click)="enviarViaSocket()"
+              [disabled]="!mensagem.trim() || !svc.conectado()">
+        Enviar via Socket.IO
+      </button>
+    </div>
+    <p class="dica">
+      O botão da esquerda usa o endpoint REST — é o caminho exigido pela atividade.
+      Ambos chegam a todos os clientes conectados.
+    </p>
+  </section>
+
+  <section class="historico">
+    <h2>
+      Histórico da sessão
+      <span class="contador">{{ svc.notificacoes().length }}</span>
+      <button class="link" (click)="svc.limparHistorico()"
+              [disabled]="!svc.notificacoes().length">limpar</button>
+    </h2>
+
+    <p class="vazio" *ngIf="!svc.notificacoes().length">
+      Nenhuma notificação ainda. Dispare uma acima ou por
+      <code>curl -X POST http://localhost:3000/notify</code>.
+    </p>
+
+    <ul>
+      <li *ngFor="let n of svc.notificacoes()" [class]="'nivel-' + n.nivel">
+        <span class="marcador"></span>
+        <div class="corpo">
+          <strong>{{ n.titulo }}</strong>
+          <span class="msg">{{ n.mensagem }}</span>
+        </div>
+        <span class="origem">{{ n.origem }}</span>
+        <time>{{ hora(n.enviadoEm) }}</time>
+      </li>
+    </ul>
+  </section>
+
+  <div class="toast" *ngIf="toastVisivel() && svc.ultima() as u" [class]="'nivel-' + u.nivel">
+    <strong>{{ u.titulo }}</strong>
+    <span>{{ u.mensagem }}</span>
+  </div>
+</main>
