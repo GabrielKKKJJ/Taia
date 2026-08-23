@@ -537,18 +537,92 @@ plotar carga contra tempo de resposta para localizar o joelho da curva.
 | Latência do endpoint | `curl -w "%{time_total}"` no `/api/rooms` e no `/api/ranking` |
 | Acerto do cache | `INFO stats` no Redis: `keyspace_hits` contra `keyspace_misses` |
 
-> [PENDENTE: **medições obrigatórias da Atividade #1**, que a rubrica cobra e ainda não
-> existem: (a) `EXPLAIN ANALYZE` de cada consulta antes e depois de criar o índice,
-> mostrando a troca de `Seq Scan` por `Index Scan`; (b) comparação de tempo e alocação
-> entre `ToListAsync()` e `AsNoTracking().ToListAsync()` na consulta de ranking. Ambas
-> dependem do PostgreSQL no ar. Isto é distinto do benchmark de carga da Atividade #3, que
-> o enunciado marca como opcional e ficou fora por decisão de escopo.]
+### 6.1. Medições feitas com PostgreSQL e Redis reais
 
-> [PENDENTE: gerar a migration dos índices com `dotnet ef migrations add AddPerformanceIndexes`
-> e rodar `dotnet build` — o código foi escrito sem SDK do .NET nesta máquina.]
+A migration `AddPerformanceIndexes` foi gerada com `dotnet ef migrations add` e aplicada com
+`dotnet ef database update`, ambos sem erro. As medições abaixo rodaram sobre essa migration,
+com `GameSessions` populada com 50 mil linhas e `Jogadores` com 20 mil, para que o volume seja
+grande o bastante para o planejador do PostgreSQL preferir o índice — com poucas linhas ele
+prefere *seq scan*, como já registrado na seção 3.1.
 
-> [PENDENTE: capturas de tela do processo — plano de execução no psql, log do EF Core com o
-> SQL gerado, e `INFO stats` do Redis mostrando a taxa de acerto do cache.]
+**Índice de `GameSession.Status`.** `EXPLAIN ANALYZE` na mesma consulta, com e sem o índice
+disponível:
+
+```
+Sem indice: Seq Scan on "GameSessions"     — Execution Time: 4.895 ms (49900 linhas descartadas)
+Com indice: Index Scan using IX_GameSession_Status — Execution Time: 0.482 ms
+```
+
+Confirma a previsão da seção 3.1: troca de `Seq Scan` por `Index Scan`, ~10x mais rápido.
+
+**`AsNoTracking()` na consulta de ranking.** Carregando as 20 mil linhas de `Jogadores`
+(cenário ampliado para tornar o custo do change tracker visível — o endpoint real usa
+`Take(10)` ou `Take(20)`, onde a diferença absoluta é pequena demais para medir):
+
+```
+Com tracking (padrao):  247 ms | 18.040 KB alocados
+Com AsNoTracking():     121 ms |  9.097 KB alocados
+```
+
+Aproximadamente metade do tempo e da memória, confirmando a seção 3.2.
+
+**Cache do ranking (Redis).** `ObterTop10Async()` chamado duas vezes seguidas:
+
+```
+1a chamada (reconstroi do banco): 797 ms
+2a chamada (cache hit):             5 ms
+TTL da chave logo apos gravar:  119,988 s (config: 120 s)
+```
+
+**Sorted Set e revogação de JWT.** Testados com três jogadores de pontuações distintas: a
+posição via `ZREVRANK` bateu com a ordem esperada (1ª, 2ª, 3ª) e um jogador sem pontuação
+retornou posição nula, como a seção 4.3 previa. A revogação de token (seção 4.7) foi testada
+com um TTL curto de 3s: o token aparece como revogado imediatamente após `RevogarTokenAsync`
+e deixa de aparecer como revogado assim que o TTL expira — a chave some sozinha, sem
+acumular. Um token já expirado no momento da revogação não chega a gravar chave no Redis.
+
+**Paginação.** Consultada a página 1 (`OFFSET 0`) e a página 2 (`OFFSET 20`) da mesma
+ordenação `PontuacaoTotal DESC, Id`: interseção de `Id` entre as duas páginas é zero, ou seja,
+o desempate por `Id` da seção 3.3 realmente elimina a duplicação/omissão de jogadores.
+
+### 6.2. Bugs encontrados ao testar de verdade (e já corrigidos na branch)
+
+Testar contra Postgres e Redis reais — em vez de só ler o código — expôs dois problemas que a
+leitura não pegaria:
+
+**A réplica de leitura nunca subia.** O `docker-compose.yml` da seção 5.2 tinha três defeitos
+empilhados, todos silenciosos até alguém rodar `docker compose up` de verdade:
+
+1. O bloco `command: > bash -c "..."` é um *scalar* YAML dobrado; a linha de continuação do
+   `pg_basebackup` (`-D /var/lib/postgresql/data ...`) ficava indentada demais e o YAML a
+   preservava como uma linha separada, virando um comando `-D` inexistente no bash.
+2. O `pg_hba.conf` gerado pelo `initdb` libera `host all all all`, mas isso **não cobre** a
+   pseudo-database `replication` — faltava uma entrada dedicada, e a réplica era rejeitada com
+   `no pg_hba.conf entry for replication connection`.
+3. Depois de corrigir os dois itens acima, o processo final (`exec postgres ...`) ainda falhava
+   com `"root" execution ... is not permitted`: o `bash -c` do `command:` roda como root e pula
+   a troca de usuário que o entrypoint oficial da imagem faz sozinho — precisa de
+   `exec gosu postgres postgres ...` explícito. E como o script inteiro passou a rodar como
+   root, os arquivos do `pg_basebackup` ficavam com dono `root`; faltava um `chown -R postgres`
+   antes do `gosu` assumir.
+
+Com as três correções, a réplica sobe, `pg_stat_replication` no primário mostra
+`state = streaming`, um `INSERT` no primário aparece na réplica em menos de um segundo, e um
+`INSERT` direto na réplica falha com `cannot execute INSERT in a read-only transaction` — o
+comportamento que a seção 5.2 descrevia, agora confirmado rodando.
+
+**`jogadores:online` só encolhia com desconexão educada.** O `GameHub` (seção 4.6) nunca
+sobrescrevia `OnDisconnectedAsync`: o Set só perdia um jogador quando o cliente chamava
+`LeaveRoom` explicitamente. Queda de conexão, aba fechada ou crash do app — o caminho mais
+comum de desconexão numa partida — deixavam o jogador para sempre no Set, inflando `SCARD` com
+o tempo. A correção mapeia `ConnectionId → (RoomId, PlayerId)` no `JoinRoom` e usa esse mapa em
+`OnDisconnectedAsync` para repetir a mesma limpeza que `LeaveRoom` já fazia.
+
+Um terceiro ponto ficou identificado mas **não corrigido**, por estar fora do escopo do que foi
+testado agora: `RevogarTokenAsync`/`TokenRevogadoAsync` (seção 4.7) funcionam corretamente
+isolados, mas nenhum endpoint de logout chama `RevogarTokenAsync`, e nada no pipeline de
+autenticação consulta `TokenRevogadoAsync` — hoje a revogação existe como código morto, sem
+efeito sobre requisições reais.
 
 ## 7. Conclusões sobre o progresso do capstone
 
@@ -568,9 +642,14 @@ estrutura de dados vale mais que a escolha da tecnologia**: trocar JSON serializ
 Sorted Set no mesmo Redis transforma a consulta de posição no ranking de varredura em
 `O(log N)`.
 
-O passo seguinte antes da apresentação é medir. Todo ganho descrito aqui é previsão
-fundamentada, e previsão fundamentada continua sendo previsão até o `EXPLAIN ANALYZE`
-confirmar.
+Uma quarta lição veio de fora da análise de banco: **rodar é diferente de ler.** O
+`docker-compose.yml` da réplica de leitura parecia correto na leitura — três defeitos
+diferentes (YAML, `pg_hba.conf`, usuário do processo) só apareceram ao executar `docker
+compose up` de verdade, e o mesmo vale para o `OnDisconnectedAsync` que faltava no `GameHub`.
+Os ganhos de índice e `AsNoTracking()` deixaram de ser previsão fundamentada: a seção 6.1 traz
+os números medidos com `EXPLAIN ANALYZE` e um comparativo de tempo/alocação sobre PostgreSQL e
+Redis reais, e a seção 6.2 documenta os dois bugs que a execução expôs e que já foram
+corrigidos na branch `lab7-djordan`.
 
 ## 8. Referências
 
