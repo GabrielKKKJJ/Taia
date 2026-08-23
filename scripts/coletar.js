@@ -136,6 +136,23 @@ function textoRubrica(tarefa) {
   return `\n## Rubrica de avaliacao\n\n${linhas.join('\n')}\n`;
 }
 
+/** Procura, entre as pastas ja criadas da materia, a que pertence a esta tarefa. */
+function pastaExistenteDaTarefa(materia, tarefaId) {
+  const dir = path.join(RAIZ, cfg.pastaEntregas, materia);
+  if (!fs.existsSync(dir)) return null;
+
+  for (const nome of fs.readdirSync(dir)) {
+    const meta = path.join(dir, nome, '_contexto', 'meta.json');
+    if (!fs.existsSync(meta)) continue;
+    try {
+      if (String(JSON.parse(fs.readFileSync(meta, 'utf8')).tarefaId) === String(tarefaId)) {
+        return path.join(dir, nome);
+      }
+    } catch { /* meta ilegivel: segue procurando */ }
+  }
+  return null;
+}
+
 function classificar(curso, tarefa, modulo) {
   return {
     tipo: detectarTipo(tarefa.name),
@@ -153,7 +170,13 @@ async function processarTarefa(canvas, curso, tarefa, modulo, materia, { tipo, s
   // da tarefa entra na pasta para nao virar "Tarefa Semana 06" ambiguo.
   const base = semana ? `${tipo} Semana ${pad2(semana)}` : tipo;
   const rotulo = precisaSufixo || !semana ? `${base} - ${nomeSeguro(tarefa.name, 42)}` : base;
-  const pasta = path.join(RAIZ, cfg.pastaEntregas, materia, nomeSeguro(rotulo, 75));
+
+  // A pasta ja existente para esta tarefa manda, mesmo que o nome que sairia
+  // hoje seja outro. O sufixo depende de quantas tarefas irmas estao pendentes
+  // no momento da coleta, e isso muda de semana para semana: sem reaproveitar,
+  // uma entrega ja escrita ficaria orfa numa pasta antiga.
+  const pasta = pastaExistenteDaTarefa(materia, tarefa.id)
+    || path.join(RAIZ, cfg.pastaEntregas, materia, nomeSeguro(rotulo, 75));
 
   const ctx = garantirPasta(path.join(pasta, '_contexto'));
   garantirPasta(path.join(pasta, 'entrega'));
