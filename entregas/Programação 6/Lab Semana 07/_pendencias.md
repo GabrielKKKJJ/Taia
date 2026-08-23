@@ -10,8 +10,7 @@ mostrando a troca de `Seq Scan` por `Index Scan`; (b) comparação de tempo e al
 entre `ToListAsync()` e `AsNoTracking().ToListAsync()` na consulta de ranking. Ambas
 dependem do PostgreSQL no ar. Isto é distinto do benchmark de carga da Atividade #3, que
 o enunciado marca como opcional e ficou fora por decisão de escopo.]
-[PENDENTE: aplicar as mudanças numa branch `LB-7/otimizacao-db-redis`, gerar a migration
-com `dotnet ef migrations add AddPerformanceIndexes`, e registrar o `EXPLAIN ANALYZE`
-antes e depois de cada índice.]
+[PENDENTE: gerar a migration dos índices com `dotnet ef migrations add AddPerformanceIndexes`
+e rodar `dotnet build` — o código foi escrito sem SDK do .NET nesta máquina.]
 [PENDENTE: capturas de tela do processo — plano de execução no psql, log do EF Core com o
 SQL gerado, e `INFO stats` do Redis mostrando a taxa de acerto do cache.]

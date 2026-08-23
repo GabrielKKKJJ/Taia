@@ -544,14 +544,15 @@ plotar carga contra tempo de resposta para localizar o joelho da curva.
 > dependem do PostgreSQL no ar. Isto é distinto do benchmark de carga da Atividade #3, que
 > o enunciado marca como opcional e ficou fora por decisão de escopo.]
 
-> [PENDENTE: aplicar as mudanças numa branch `LB-7/otimizacao-db-redis`, gerar a migration
-> com `dotnet ef migrations add AddPerformanceIndexes`, e registrar o `EXPLAIN ANALYZE`
-> antes e depois de cada índice.]
+> [PENDENTE: gerar a migration dos índices com `dotnet ef migrations add AddPerformanceIndexes`
+> e rodar `dotnet build` — o código foi escrito sem SDK do .NET nesta máquina.]
 
 > [PENDENTE: capturas de tela do processo — plano de execução no psql, log do EF Core com o
 > SQL gerado, e `INFO stats` do Redis mostrando a taxa de acerto do cache.]
 
 ## 7. Conclusões sobre o progresso do capstone
+
+O código desta análise está aplicado na branch `lab7-djordan` do repositório do grupo.
 
 O laboratório 6 resolveu a comunicação; este ataca o que a sustenta. São problemas de
 natureza diferente: lá o gargalo era latência de entrega, aqui é custo de consulta — e
