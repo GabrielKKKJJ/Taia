@@ -468,7 +468,7 @@ python analise_preditiva.py
 No Google Colab, subir `leituras.csv` e instalar apenas `paho-mqtt`, que não vem no
 ambiente.
 
-Para o assinante: criar um projeto ESP32 no Wokwi, colar `esp32_assinante/sketch.ino`,
+Para o assinante: criar outro projeto pelo mesmo link, colar `esp32_assinante/sketch.ino`,
 `diagram.json` e `libraries.txt`, e dar Play. Ele conecta na rede `Wokwi-GUEST` e passa a
 escutar `/iot/alertas`. Rodar o script Python em seguida faz os LEDs reagirem.
 
@@ -482,7 +482,14 @@ escutar `/iot/alertas`. Rodar o script Python em seguida faz os LEDs reagirem.
 
 ## 16. Como reproduzir a Atividade #1
 
-1. Abrir <https://wokwi.com> e criar um projeto **ESP32**.
+**Atenção ao template.** Use <https://wokwi.com/projects/new/esp32>, que cria um projeto
+**Arduino** — o arquivo da aba de código precisa se chamar `sketch.ino`. O Wokwi também oferece
+um template ESP-IDF cujo arquivo é `main.c`; nele o mesmo código falha na compilação com
+`unknown type name class`, porque o `.c` é compilado como C e não como C++.
+
+
+1. Abrir <https://wokwi.com/projects/new/esp32> — o template **Arduino**, cujo arquivo
+   principal é `sketch.ino`.
 2. Colar `wokwi/sketch.ino` na aba de código.
 3. Substituir a aba `diagram.json` pelo arquivo `wokwi/diagram.json` — o circuito aparece
    montado e ligado.

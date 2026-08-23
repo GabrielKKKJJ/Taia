@@ -135,7 +135,14 @@ Memoria livre: <valor reportado pelo chip> bytes
 
 ## 6. Como reproduzir
 
-1. Abrir <https://wokwi.com> e criar um novo projeto **ESP32**.
+**Atenção ao template.** Use <https://wokwi.com/projects/new/esp32>, que cria um projeto
+**Arduino** — o arquivo da aba de código precisa se chamar `sketch.ino`. O Wokwi também oferece
+um template ESP-IDF cujo arquivo é `main.c`; nele o mesmo código falha na compilação com
+`unknown type name class`, porque o `.c` é compilado como C e não como C++.
+
+
+1. Abrir <https://wokwi.com/projects/new/esp32> — o template **Arduino**, cujo arquivo
+   principal é `sketch.ino`.
 2. Colar o conteúdo de `wokwi/sketch.ino` na aba do código.
 3. Abrir a aba `diagram.json` e substituir pelo arquivo `wokwi/diagram.json` — o circuito
    aparece montado, sem precisar arrastar componentes.
