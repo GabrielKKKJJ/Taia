@@ -49,6 +49,39 @@ Regras que não se negociam:
 - Escreva em português do Brasil, no nível de um aluno da matéria — não em tom de artigo científico nem de post de blog.
 - Cite as fontes dos materiais da semana em Referências.
 
+**Comentário de código: escreva como aluno, não como material didático.**
+
+O jeito mais óbvio de o código parecer gerado por IA é o excesso e o tom dos comentários. Ninguém comenta o próprio trabalho explicando o porquê de cada decisão em prosa polida. Regras:
+
+- **Comente o não óbvio, e só ele.** Um número mágico, uma armadilha da biblioteca, um contorno de bug. Se a linha se explica sozinha, não comente.
+- **Nada de aula.** Não explique o que é `AsNoTracking`, o que é um índice composto ou por que `delay()` bloqueia. Esse conteúdo é do *relatório*, que é onde o professor espera a justificativa — no código ele só polui.
+- **Uma linha, não um parágrafo.** Comentário de três linhas justificando uma escolha de projeto é a marca registrada. Se precisa de parágrafo, vai para o relatório.
+- **Sem banners de seção** do tipo `// ---------- pinos ----------` ou `// ===== Atividade #2 =====` cortando o arquivo em blocos decorados.
+- **Sem comentário redundante com o commit** ou com o nome da função. `// LB-7 #2: presenca no Redis` acima de `AdicionarJogadorOnlineAsync` não acrescenta nada.
+- **Densidade:** o código do repositório do aluno é a referência. Se os arquivos existentes têm poucos comentários, os novos também têm.
+
+```csharp
+// ruim - explica o conceito, em prosa, com justificativa de projeto
+// AsNoTracking: consulta somente leitura. O EF Core deixa de criar
+// snapshot das entidades para detectar alteracao, trabalho desperdicado
+// numa tela que so exibe. Aproveita o indice IX_GameSession_Status.
+var rooms = await context.GameSessions.AsNoTracking()
+
+// bom - so o que nao se deduz lendo
+var rooms = await context.GameSessions.AsNoTracking()
+```
+
+```cpp
+// ruim
+// O ClientId recebe um GUID de proposito. Brokers MQTT derrubam a conexao
+// anterior quando um segundo cliente se apresenta com o mesmo identificador.
+
+// bom
+// GUID: broker derruba a conexao anterior se o id repetir
+```
+
+A justificativa não se perde — ela vive no relatório, onde vale nota.
+
 O markdown aceita `##`/`###`, listas, tabelas `| a | b |`, blocos ``` de código, citações `>` e imagens `![legenda](arquivo.png)` com caminho relativo a `entrega/`.
 
 ### 2.3 Gerar o .docx
