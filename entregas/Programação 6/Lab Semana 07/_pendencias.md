@@ -2,8 +2,14 @@
 
 _Retiradas automaticamente do relatorio: nao aparecem no .docx entregue._
 
-## 1. aplicar as mudanças numa branch LB-7/otimizacao-db-redis, gerar a migration
+## 1. medições obrigatórias da Atividade #1, que a rubrica cobra e ainda não
 
+[PENDENTE: **medições obrigatórias da Atividade #1**, que a rubrica cobra e ainda não
+existem: (a) `EXPLAIN ANALYZE` de cada consulta antes e depois de criar o índice,
+mostrando a troca de `Seq Scan` por `Index Scan`; (b) comparação de tempo e alocação
+entre `ToListAsync()` e `AsNoTracking().ToListAsync()` na consulta de ranking. Ambas
+dependem do PostgreSQL no ar. Isto é distinto do benchmark de carga da Atividade #3, que
+o enunciado marca como opcional e ficou fora por decisão de escopo.]
 [PENDENTE: aplicar as mudanças numa branch `LB-7/otimizacao-db-redis`, gerar a migration
 com `dotnet ef migrations add AddPerformanceIndexes`, e registrar o `EXPLAIN ANALYZE`
 antes e depois de cada índice.]

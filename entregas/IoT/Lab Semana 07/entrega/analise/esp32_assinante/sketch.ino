@@ -107,7 +107,10 @@ void setup() {
   conectarWifi();
   mqtt.setServer(BROKER, PORTA);
   mqtt.setCallback(aoReceber);
-  mqtt.setBufferSize(1024);   // o payload de alerta passa dos 256 bytes padrao
+  // O alerta ocupa cerca de 145 bytes e caberia nos 256 padrao. Subir para 1024
+  // e margem barata: se o campo "motivo" crescer ou os alertas forem enviados em
+  // lote, o PubSubClient descarta a mensagem em silencio, sem erro no log.
+  mqtt.setBufferSize(1024);
 }
 
 void loop() {

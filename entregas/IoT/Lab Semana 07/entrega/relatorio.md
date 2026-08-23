@@ -260,7 +260,7 @@ faz a primeira coisa nunca previne nada.
 O dataset está em `analise/dados/leituras.csv`: **1440 leituras horárias ao longo de 60
 dias** (01/07 a 29/08/2026), com temperatura, umidade e luminosidade. Ele é simulado, como o
 enunciado permite, e foi gerado com semente fixa para ser reproduzível. A série tem ciclo
-diário, tendência sazonal de aquecimento e um episódio de calor seco entre os dias 41 e 47 —
+diário, tendência sazonal de aquecimento e um episódio de calor seco entre **11 e 17 de agosto** —
 esse episódio existe de propósito, para que as regras de inferência tenham o que detectar.
 
 ## 11. Processamento e regras de inferência
@@ -368,8 +368,9 @@ mqtt.setBufferSize(1024);  // o padrao do PubSubClient e 256 bytes
 ```
 
 O buffer padrão de 256 bytes descarta silenciosamente mensagens maiores — o alerta
-simplesmente não chega, sem erro nenhum no log. Como o payload de alerta passa disso, o
-ajuste é obrigatório.
+simplesmente não chega, e nada aparece no log. O payload de alerta ocupa cerca de **145
+bytes** e caberia no padrão; subir para 1024 é margem barata contra o dia em que o campo
+ crescer ou os alertas forem enviados em lote.
 
 O `loop()` também não usa `delay()` para piscar o LED amarelo: `mqtt.loop()` precisa rodar
 com frequência para processar a fila de entrada, e um `delay()` de meio segundo derrubaria a

@@ -475,9 +475,11 @@ builder.Services.AddDbContext<BattleTanksReadContext>(o =>
      .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));
 ```
 
-`NoTracking` fixado no contexto de leitura não é só otimização: é uma **barreira de
-segurança**. Torna impossível salvar por engano através da réplica, que é somente leitura de
-qualquer forma e devolveria um erro em tempo de execução.
+`NoTracking` fixado no contexto de leitura não é só otimização: é uma **declaração de
+intenção**. Ele não bloqueia a escrita por si — quem chamar `Add` e `SaveChanges` ainda
+tenta gravar — mas remove o caminho acidental, o de carregar uma entidade, alterá-la e
+salvar sem perceber. A barreira de verdade é a própria réplica, que é somente leitura e
+devolve erro em tempo de execução.
 
 O trade-off a declarar é o **atraso de replicação**. A réplica fica milissegundos ou segundos
 atrás do primário. Para ranking e histórico isso é irrelevante. Para a tela que o jogador vê
@@ -534,6 +536,13 @@ plotar carga contra tempo de resposta para localizar o joelho da curva.
 | Consulta N+1 | Contar comandos no log: uma tela que emite dezenas de `SELECT` tem N+1 |
 | Latência do endpoint | `curl -w "%{time_total}"` no `/api/rooms` e no `/api/ranking` |
 | Acerto do cache | `INFO stats` no Redis: `keyspace_hits` contra `keyspace_misses` |
+
+> [PENDENTE: **medições obrigatórias da Atividade #1**, que a rubrica cobra e ainda não
+> existem: (a) `EXPLAIN ANALYZE` de cada consulta antes e depois de criar o índice,
+> mostrando a troca de `Seq Scan` por `Index Scan`; (b) comparação de tempo e alocação
+> entre `ToListAsync()` e `AsNoTracking().ToListAsync()` na consulta de ranking. Ambas
+> dependem do PostgreSQL no ar. Isto é distinto do benchmark de carga da Atividade #3, que
+> o enunciado marca como opcional e ficou fora por decisão de escopo.]
 
 > [PENDENTE: aplicar as mudanças numa branch `LB-7/otimizacao-db-redis`, gerar a migration
 > com `dotnet ef migrations add AddPerformanceIndexes`, e registrar o `EXPLAIN ANALYZE`

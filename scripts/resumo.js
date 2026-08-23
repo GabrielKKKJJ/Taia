@@ -71,6 +71,23 @@ function pendencias(pasta) {
     .filter((t) => t && !/^j[aá] resolvido/i.test(t));
 }
 
+/**
+ * O .docx e gerado a partir do relatorio.md. Se o markdown foi editado depois,
+ * o arquivo que seria entregue esta desatualizado — erro silencioso e facil de
+ * cometer, porque os dois existem e parecem certos.
+ */
+function docxDesatualizado(pasta) {
+  const dir = path.join(RAIZ, pasta, 'entrega');
+  const rel = path.join(dir, 'relatorio.md');
+  if (!fs.existsSync(dir) || !fs.existsSync(rel)) return false;
+
+  const docx = fs.readdirSync(dir).filter((f) => f.endsWith('.docx'));
+  if (!docx.length) return false;
+
+  const md = fs.statSync(rel).mtimeMs;
+  return docx.some((f) => fs.statSync(path.join(dir, f)).mtimeMs + 1000 < md);
+}
+
 function entregaveis(pasta) {
   const dir = path.join(RAIZ, pasta, 'entrega');
   if (!fs.existsSync(dir)) return [];
@@ -99,11 +116,14 @@ const linhas = [
 
 const semEntrega = [];
 const todasPendencias = [];
+const desatualizados = [];
 
 for (const i of itens.sort((a, b) => new Date(a.prazo) - new Date(b.prazo))) {
   const arqs = entregaveis(i.pasta);
   const v = veredito(i.pasta);
   const p = pendencias(i.pasta);
+  const velho = docxDesatualizado(i.pasta);
+  if (velho) desatualizados.push(i);
 
   if (!arqs.length) semEntrega.push(i);
   if (p.length) todasPendencias.push({ item: i, lista: p });
@@ -115,7 +135,7 @@ for (const i of itens.sort((a, b) => new Date(a.prazo) - new Date(b.prazo))) {
     new Date(i.prazo).toLocaleDateString('pt-BR'),
     i.pontos ?? '—',
     v.texto + (v.desatualizada ? ' ⚠ desatualizada' : ''),
-    arqs.length ? `${arqs.length}` : '**vazio**',
+    arqs.length ? (velho ? `${arqs.length} ⚠ regerar` : `${arqs.length}`) : '**vazio**',
     '',
   ].join(' | ').replace(/^ \| /, '| ').replace(/ \| $/, ' |'));
 }
@@ -129,6 +149,18 @@ if (todasPendencias.length) {
   }
 }
 
+if (desatualizados.length) {
+  linhas.push(
+    '## Atenção — .docx desatualizado',
+    '',
+    'O markdown foi editado depois da última geração do `.docx`. Rode',
+    '`node scripts/relatorio.js "<pasta>"` nestas antes de entregar:',
+    ''
+  );
+  desatualizados.forEach((i) => linhas.push(`- ${i.materia} — ${i.tarefa}`));
+  linhas.push('');
+}
+
 if (semEntrega.length) {
   linhas.push('## Sem entrega produzida', '');
   semEntrega.forEach((i) => linhas.push(`- ${i.materia} — ${i.tarefa} (prazo ${formatarData(i.prazo)})`));
@@ -139,3 +171,4 @@ const destino = path.join(RAIZ, cfg.pastaEntregas, `_RESUMO-${stamp}.md`);
 fs.writeFileSync(destino, linhas.join('\n') + '\n', 'utf8');
 console.log(`Resumo gravado em ${path.relative(RAIZ, destino)}`);
 console.log(`  ${itens.length} atividades | ${todasPendencias.length} com pendencia | ${semEntrega.length} sem entrega`);
+if (desatualizados.length) console.log(`  ATENCAO: ${desatualizados.length} .docx desatualizado(s) — regere antes de entregar`);

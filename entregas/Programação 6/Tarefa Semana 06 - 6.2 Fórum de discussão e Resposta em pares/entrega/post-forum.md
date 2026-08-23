@@ -97,7 +97,8 @@ servidor discordar, o número pula na tela, e o jogador percebe. A regra que seg
 
 ## PARTE 2 — Resposta a um colega
 
-> As instruções pedem resposta a dois colegas. Escolha dois e adapte.
+> O enunciado pede resposta a **um** colega, em 2 ou 3 frases, pedindo mais detalhes sobre
+> a pesquisa dele. Escolha o modelo conforme a discussão que o colega respondeu.
 
 **Modelo A — se o colega defendeu usar só SignalR:**
 
@@ -107,10 +108,17 @@ precisam sobreviver à sessão, como parede destruída, para que um jogador que 
 cenário como ele está e não como começou. Vocês trataram reconexão de alguma forma, ou o
 jogador que cai perde o estado da partida?
 
-**Modelo B — se o colega falou de QoS:**
+**Modelo B — se o colega falou de QoS (Discussão 1):**
 
-Boa explicação sobre os níveis. Só acrescentaria um ponto que descobrimos na prática: o QoS 2
-raramente compensa em jogo, porque o handshake de quatro vias custa latência e a duplicação
-que o QoS 1 permite é inofensiva quando o consumidor é idempotente — aplicar duas vezes
-"vida = 40" dá no mesmo. Vocês chegaram a medir a diferença de latência entre os níveis, ou
-escolheram pelo critério teórico?
+Boa explicação sobre os níveis. Só acrescentaria um ponto: o QoS 2 raramente compensa em
+jogo, porque o handshake de quatro vias custa latência e a duplicação que o QoS 1 permite é
+inofensiva quando o consumidor é idempotente. Vocês chegaram a medir a diferença de latência
+entre os níveis, ou escolheram pelo critério teórico?
+
+**Modelo C — se o colega respondeu a Discussão 2 (priorização de eventos):**
+
+Concordo com o critério de priorizar pela consequência de perder o evento, e não pela
+frequência. O que me ajudou a fechar essa ideia foi perceber que garantir entrega é menos
+importante do que garantir que o estado possa ser reconstruído — no nosso caso o cliente
+recebe a semente do mapa e as paredes destruídas ao entrar, então mesmo perdendo eventos ele
+chega ao estado certo. Como vocês trataram o cliente que reconecta no meio da partida?

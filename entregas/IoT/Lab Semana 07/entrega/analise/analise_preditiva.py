@@ -16,7 +16,6 @@ No Google Colab, instale com:
 import json
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import matplotlib
 matplotlib.use("Agg")          # backend sem janela: necessario em Colab e em CI
@@ -212,7 +211,13 @@ def publicar_alertas(alertas: list[dict]) -> None:
     QoS 1 porque alerta perdido nao adianta nada, e o consumidor e idempotente
     (aplicar duas vezes o mesmo alerta de seca do dia X da no mesmo).
     """
-    cliente = mqtt.Client(client_id="analise-preditiva-lab7")
+    # paho-mqtt 2.0 passou a exigir a versao da API de callback como primeiro
+    # argumento. O try/except mantem o script rodando nas duas linhas.
+    try:
+        cliente = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2,
+                              client_id="analise-preditiva-lab7")
+    except AttributeError:                      # paho-mqtt < 2.0
+        cliente = mqtt.Client(client_id="analise-preditiva-lab7")
 
     cliente.connect(BROKER, PORTA, keepalive=60)
     cliente.loop_start()
