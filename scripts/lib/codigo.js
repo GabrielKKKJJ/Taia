@@ -134,7 +134,8 @@ async function renderizarBlocos(itens, opcoes = {}) {
 
   let puppeteer;
   try {
-    puppeteer = require('puppeteer-core');
+    // puppeteer-core 22+ e ESM-only: precisa de import() dinamico, require() nao funciona.
+    ({ default: puppeteer } = await import('puppeteer-core'));
   } catch (e) {
     return itens.map((i) => ({ saida: i.saida, ok: false, erro: `puppeteer-core ausente: ${e.message}` }));
   }

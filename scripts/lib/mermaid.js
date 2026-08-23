@@ -9,6 +9,13 @@ const CAMINHOS_CHROME = [
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/usr/bin/microsoft-edge',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
 ];
 
 function acharNavegador() {
@@ -45,7 +52,8 @@ async function renderizarDiagramas(itens) {
   let puppeteer;
   let mermaidJs;
   try {
-    puppeteer = require('puppeteer-core');
+    // puppeteer-core 22+ e ESM-only: precisa de import() dinamico, require() nao funciona.
+    ({ default: puppeteer } = await import('puppeteer-core'));
     mermaidJs = fs.readFileSync(require.resolve('mermaid/dist/mermaid.min.js'), 'utf8');
   } catch (e) {
     return itens.map((i) => ({ saida: i.saida, ok: false, erro: `dependencia ausente: ${e.message}` }));
