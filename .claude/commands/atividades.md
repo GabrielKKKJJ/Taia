@@ -73,6 +73,8 @@ Nunca edite `_revisao.md` para fazer um item passar.
 
 ## Passo 3 — Resumo da rodada
 
+Rode `node scripts/resumo.js` — ele monta a tabela a partir da fila, dos vereditos gravados pelo revisor e dos `_pendencias.md`, e marca com ⚠ toda revisão anterior à última edição do relatório. Complemente o arquivo gerado com o que mais for relevante.
+
 Escreva `entregas/_RESUMO-<AAAA-MM-DD>.md`:
 
 ```markdown

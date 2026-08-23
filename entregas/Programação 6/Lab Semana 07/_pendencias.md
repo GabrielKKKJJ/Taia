@@ -2,7 +2,7 @@
 
 _Retiradas automaticamente do relatorio: nao aparecem no .docx entregue._
 
-## 1.
+## 1. aplicar as mudanças numa branch LB-7/otimizacao-db-redis, gerar a migration
 
 [PENDENTE: aplicar as mudanças numa branch `LB-7/otimizacao-db-redis`, gerar a migration
 com `dotnet ef migrations add AddPerformanceIndexes`, e registrar o `EXPLAIN ANALYZE`

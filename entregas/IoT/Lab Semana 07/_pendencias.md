@@ -2,14 +2,14 @@
 
 _Retiradas automaticamente do relatorio: nao aparecem no .docx entregue._
 
-## 1.
+## 1. executar o analise_preditiva
 
 [PENDENTE: executar o `analise_preditiva.py` no Colab e anexar `tendencias.png`,
 `alertas.json` e a saída do terminal com as publicações.]
 [PENDENTE: capturas da publicação e da recepção MQTT — terminal do Python publicando e o
 monitor serial do ESP32 assinante recebendo, com o LED correspondente aceso.]
 
-## 2.
+## 2. publicar o projeto no Wokwi e colar o link público aqui — o enunciado pede
 
 [PENDENTE: publicar o projeto no Wokwi e colar o link público aqui — o enunciado pede
 "Link do projeto no Wokwi" como entregável.]

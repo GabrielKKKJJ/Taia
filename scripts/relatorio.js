@@ -161,7 +161,16 @@ function extrairMermaid(markdown, pastaAssets) {
       '',
       '_Retiradas automaticamente do relatorio: nao aparecem no .docx entregue._',
       '',
-      ...pendencias.map((p, i) => `## ${i + 1}.\n\n${p}\n`),
+      ...pendencias.map((p, i) => {
+        // Titulo = primeira frase do bloco, para o resumo da rodada conseguir listar.
+        const titulo = p
+          .replace(/^\[?(PENDENTE|BLOQUEANTE|IMPORTANTE|MENOR|TODO)\]?:?\s*/i, '')
+          .split(/[.\n]/)[0]
+          .replace(/[[\]*`]/g, '')
+          .trim()
+          .slice(0, 90);
+        return `## ${i + 1}. ${titulo}\n\n${p}\n`;
+      }),
     ].join('\n'), 'utf8');
   } else if (fs.existsSync(arqPendencias)) {
     fs.unlinkSync(arqPendencias);
