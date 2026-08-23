@@ -7,7 +7,7 @@ atividade: Hello World no Wokwi — o ambiente de desenvolvimento de IoT simulad
 
 A atividade pede um *hello world* desenvolvido na plataforma Wokwi, acompanhado de uma
 explicação de como esse ambiente de desenvolvimento funciona. Este documento traz o
-circuito, o código comentado, a saída obtida e a análise do que a simulação permite — e do
+circuito, o código comentado, o formato da saída no monitor serial e a análise do que a
 que ela não permite.
 
 ## 2. O que é o Wokwi
@@ -113,15 +113,19 @@ inicializou, o clock está configurado e a serial está na taxa certa. Quando o 
 símbolos sem sentido, quase sempre é porque a taxa do monitor não bate com os 115200 do
 `Serial.begin()` — é o primeiro erro que todo mundo comete.
 
-## 5. Saída esperada no monitor serial
+## 5. Formato da saída no monitor serial
+
+O bloco abaixo mostra a **estrutura** que o firmware imprime. Os três valores entre
+sinais de menor e maior são lidos do próprio chip em tempo de execução e variam a cada
+placa e a cada compilação — por isso aparecem como marcadores, e não como números fixos.
 
 ```
 =====================================
   Hello, World! - ESP32 no Wokwi
 =====================================
-Chip: ESP32-D0WDQ6
-Frequencia da CPU: 240 MHz
-Memoria livre: 298764 bytes
+Chip: <modelo reportado pelo chip>
+Frequencia da CPU: <valor reportado> MHz
+Memoria livre: <valor reportado pelo chip> bytes
 -------------------------------------
 [1s] ciclo 1 | LED ACESO
 [2s] ciclo 2 | LED APAGADO

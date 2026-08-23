@@ -121,8 +121,13 @@ não fica mais frequente só porque mais alunos estão consultando.
 
 ### 3.2. Padrão de resiliência: Circuit Breaker com Fallback
 
-O disjuntor protege a chamada da Grades API ao Messaging Service e ao serviço de
-autenticação.
+Cabe uma distinção que a seção anterior já resolveu em parte: **o Messaging Service deixou
+de ser uma dependência síncrona** — a publicação agora emite um evento na fila, e é a fila
+que desacopla. O disjuntor não se aplica ali.
+
+Onde ele se aplica é nas chamadas que continuam síncronas no caminho crítico: o **serviço de
+autenticação**, consultado a cada requisição, e a **leitura no cache e nas réplicas**, feita
+pela camada de Query.
 
 ```
         falhas > 50% em 30 s
@@ -137,9 +142,16 @@ FECHADO ────────────────────────
   impede a falha em cascata — o serviço lento deixa de contaminar o chamador.
 - **Meio-aberto:** após 60 s, uma chamada de teste decide se volta a fechar.
 
-O **fallback** é o que torna o disjuntor aceitável do ponto de vista do negócio: com o
-Messaging indisponível, a nota é gravada normalmente e o evento fica na fila para entrega
-posterior. A notificação atrasa; a publicação não falha.
+O **fallback** é o que torna o disjuntor aceitável do ponto de vista do negócio. Com o Redis
+fora do ar, a consulta cai para a réplica de leitura e responde mais devagar, em vez de
+falhar. Com o serviço de autenticação instável, um token ainda válido é aceito pela
+validação local da assinatura, sem a checagem de revogação — degradação consciente, com
+janela curta.
+
+Para o Messaging, o papel de fallback é da própria fila: a nota é gravada e o evento fica
+enfileirado para entrega posterior. A notificação atrasa; a publicação não falha. É a mesma
+ideia do disjuntor — conter a falha em vez de propagá-la — obtida por um mecanismo
+diferente.
 
 Complementam o desenho:
 

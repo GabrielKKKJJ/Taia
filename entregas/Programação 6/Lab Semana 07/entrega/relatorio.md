@@ -225,7 +225,7 @@ que dependa de eventos.
 
 ---
 
-## 4. Atividade #2 — Uso avançado do Redis
+## 4. Atividade #2 — Integração Redis para cache distribuído
 
 ### 4.1. O que o Redis já faz, e o que falta
 
@@ -335,9 +335,197 @@ public Task RenovarAsync(string sessaoId) =>
 | `ranking:global` | String (JSON) | Cache do top 10 | 2 min |
 | `sessao:{id}` | Hash | Sessão do jogador | 4 h, renovável |
 
+### 4.6. Jogadores conectados com Set
+
+O enunciado pede o armazenamento dos jogadores conectados a partir do `GameHub`. A estrutura
+correta é o **Set**, porque a propriedade que interessa é unicidade: o mesmo jogador não pode
+constar duas vezes, e a contagem precisa ser barata.
+
+```csharp
+// Em GameHub.JoinRoom, apos Groups.AddToGroupAsync:
+await _db.SetAddAsync($"sala:{payload.RoomId}:online", payload.PlayerId);
+await _db.SetAddAsync("jogadores:online", payload.PlayerId);
+
+// Em LeaveRoom e em OnDisconnectedAsync:
+await _db.SetRemoveAsync($"sala:{payload.RoomId}:online", payload.PlayerId);
+
+// Contagem em O(1), sem varrer o conjunto:
+var online = await _db.SetLengthAsync("jogadores:online");
+```
+
+`SCARD` responde a contagem em tempo constante, e `SADD` é idempotente — chamar duas vezes
+com o mesmo jogador não duplica. Isso importa porque uma reconexão rápida pode disparar
+`JoinRoom` antes de o `OnDisconnectedAsync` anterior ter rodado.
+
+### 4.7. Sessão e revogação de token
+
+O enunciado pede validar a sessão **sem consultar o PostgreSQL**, e guardar tokens JWT
+expirados no Redis. O ponto sutil é que um JWT é autocontido e válido até expirar — não
+existe "apagar" um JWT. A forma de revogá-lo antes do prazo é manter uma **lista de negação**
+consultada a cada requisição.
+
+```csharp
+/// Revoga um token no logout. O TTL e o tempo que faltava para ele expirar
+/// sozinho: depois disso a negacao e desnecessaria, e a chave some por conta
+/// propria - a lista nunca cresce indefinidamente.
+public async Task RevogarTokenAsync(string jti, DateTimeOffset expiraEm)
+{
+    var restante = expiraEm - DateTimeOffset.UtcNow;
+    if (restante <= TimeSpan.Zero) return;
+
+    await _db.StringSetAsync($"jwt:revogado:{jti}", "1", restante);
+}
+
+public Task<bool> TokenRevogadoAsync(string jti) =>
+    _db.KeyExistsAsync($"jwt:revogado:{jti}");
+```
+
+Casar o TTL da chave com o tempo restante do token é a decisão que torna isso sustentável.
+Sem ela, a lista de negação cresceria para sempre guardando tokens que já expiraram e não
+poderiam ser usados de qualquer forma.
+
 ---
 
-## 5. Como validar os ganhos
+## 5. Atividade #3 — Design do banco para escalabilidade
+
+### 5.1. Sharding por região
+
+O enunciado sugere fragmentar por região, e faz sentido no contexto de um jogo: a partida é
+uma interação **local entre poucos jogadores**, e ninguém joga com quem está do outro lado do
+mundo por causa da latência. Isso significa que a fronteira natural de fragmentação já existe
+no domínio.
+
+```mermaid Figura 2 — Sharding por região, com ranking centralizado no Redis
+flowchart TB
+  APP["API BattleTanks"]
+  ROT{{"Roteador<br/>por regiao do jogador"}}
+
+  SA[("Shard BR<br/>partidas e pontuacoes")]
+  SB[("Shard US<br/>partidas e pontuacoes")]
+  SC[("Shard EU<br/>partidas e pontuacoes")]
+
+  RD[("Redis<br/>ranking global<br/>Sorted Set")]
+
+  APP --> ROT
+  ROT --> SA
+  ROT --> SB
+  ROT --> SC
+  SA -- "pontuacao consolidada" --> RD
+  SB -- "pontuacao consolidada" --> RD
+  SC -- "pontuacao consolidada" --> RD
+
+  classDef sh fill:#dbeafe,stroke:#3b82f6
+  classDef rd fill:#fee2e2,stroke:#ef4444
+  class SA,SB,SC sh
+  class RD rd
+```
+
+A chave de fragmentação seria a região do jogador, e o dado de partida ficaria no shard onde
+a partida aconteceu. Duas consequências precisam ser declaradas:
+
+**O que fica fácil.** Consultas de partida, histórico e estatística de um jogador ficam
+inteiramente dentro de um shard. Nenhuma consulta distribuída, nenhuma transação
+distribuída.
+
+**O que quebra.** O ranking global. Ordenar todos os jogadores exigiria consultar cada shard,
+trazer resultados parciais e mesclar — e o resultado seria uma foto de instantes diferentes,
+com paginação incorreta. A solução adotada no desenho acima é **não fazer ranking global no
+banco**: cada shard publica a pontuação consolidada num Sorted Set do Redis, que é central e
+ordenado por natureza.
+
+Vale a honestidade sobre o escopo: **o Battle Tanks não precisa de sharding hoje.** Alguns
+milhares de jogadores não saturam uma instância PostgreSQL bem indexada. O que o projeto
+precisa de fato é do particionamento por data, discutido na tarefa 7.4, que ataca o problema
+real — crescimento do histórico. Sharding entra no relatório como projeto para escala futura,
+como o enunciado pede, e não como necessidade atual.
+
+### 5.2. Réplicas de leitura com replicação em streaming
+
+Réplicas resolvem um problema mais imediato que o sharding: distribuir a **carga de leitura**
+sem multiplicar a de escrita.
+
+```
+                escrita                    leitura
+   API ────────────────► PRIMARIO ═══════► REPLICA 1 ──► ranking, historico
+                            ║   (WAL)
+                            ╚═══════════► REPLICA 2 ──► relatorios
+```
+
+Configuração no primário (`postgresql.conf`):
+
+```conf
+wal_level = replica
+max_wal_senders = 4
+wal_keep_size = 512MB
+hot_standby = on
+```
+
+E a réplica é criada a partir de um `pg_basebackup`, seguindo o WAL do primário
+continuamente.
+
+No lado da aplicação, a separação é por string de conexão:
+
+```csharp
+builder.Services.AddDbContext<BattleTanksContext>(o =>
+    o.UseNpgsql(cfg.GetConnectionString("Primario")));
+
+// Contexto somente leitura, apontado para a replica.
+builder.Services.AddDbContext<BattleTanksReadContext>(o =>
+    o.UseNpgsql(cfg.GetConnectionString("Replica"))
+     .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking));
+```
+
+`NoTracking` fixado no contexto de leitura não é só otimização: é uma **barreira de
+segurança**. Torna impossível salvar por engano através da réplica, que é somente leitura de
+qualquer forma e devolveria um erro em tempo de execução.
+
+O trade-off a declarar é o **atraso de replicação**. A réplica fica milissegundos ou segundos
+atrás do primário. Para ranking e histórico isso é irrelevante. Para a tela que o jogador vê
+logo após terminar a partida, não é — ali a leitura precisa ir ao primário, ou ele acha que a
+pontuação não foi contada.
+
+### 5.3. Connection pooling com Npgsql
+
+Abrir conexão com PostgreSQL é caro: envolve handshake TCP, autenticação e alocação de um
+processo no servidor. Num jogo com muitas requisições curtas, o custo de abrir a conexão
+supera o da consulta.
+
+O Npgsql mantém pool por padrão, mas os valores default raramente servem:
+
+```
+Host=localhost;Database=battletanks;Username=app;Password=***;
+Minimum Pool Size=5;
+Maximum Pool Size=50;
+Connection Idle Lifetime=300;
+Timeout=15;
+Command Timeout=30;
+Max Auto Prepare=20
+```
+
+| Parâmetro | Por quê |
+|---|---|
+| `Minimum Pool Size=5` | Evita o custo de abrir conexão no primeiro acesso após ociosidade |
+| `Maximum Pool Size=50` | Teto. Precisa ser menor que o `max_connections` do servidor dividido pelo número de instâncias da API |
+| `Connection Idle Lifetime` | Devolve ao servidor conexões paradas |
+| `Timeout` | Falha rápido quando o pool esgota, em vez de acumular requisições esperando |
+| `Max Auto Prepare` | Prepara automaticamente as consultas mais repetidas, economizando o replanejamento |
+
+O erro clássico aqui é **dimensionar o pool grande demais**. Cada conexão consome um processo
+no PostgreSQL; um pool de 200 conexões por instância, com três instâncias, esgota o
+`max_connections` padrão e derruba o banco. Pool menor com fila costuma dar mais vazão do que
+pool grande com o servidor sobrecarregado. Acima de certo ponto, um *pooler* externo como o
+PgBouncer é o caminho.
+
+### 5.4. Benchmarking de carga
+
+O enunciado marca esta parte como **opcional**, e ela ficou fora do escopo desta entrega. Fica
+registrado o caminho para quando for feita: simular mais de 100 conexões simultâneas com k6
+ou JMeter, medir o tempo de resposta do `/api/rooms` e do ranking sob carga crescente, e
+plotar carga contra tempo de resposta para localizar o joelho da curva.
+
+---
+
+## 6. Como validar os ganhos
 
 | O que medir | Como |
 |---|---|
@@ -354,7 +542,7 @@ public Task RenovarAsync(string sessaoId) =>
 > [PENDENTE: capturas de tela do processo — plano de execução no psql, log do EF Core com o
 > SQL gerado, e `INFO stats` do Redis mostrando a taxa de acerto do cache.]
 
-## 6. Conclusões sobre o progresso do capstone
+## 7. Conclusões sobre o progresso do capstone
 
 O laboratório 6 resolveu a comunicação; este ataca o que a sustenta. São problemas de
 natureza diferente: lá o gargalo era latência de entrega, aqui é custo de consulta — e
@@ -374,7 +562,7 @@ O passo seguinte antes da apresentação é medir. Todo ganho descrito aqui é p
 fundamentada, e previsão fundamentada continua sendo previsão até o `EXPLAIN ANALYZE`
 confirmar.
 
-## 7. Referências
+## 8. Referências
 
 - Microsoft. *EF Core — Índices*. <https://learn.microsoft.com/ef/core/modeling/indexes>
 - Microsoft. *EF Core — Tracking vs. No-Tracking Queries*. <https://learn.microsoft.com/ef/core/querying/tracking>

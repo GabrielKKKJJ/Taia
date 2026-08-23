@@ -1,6 +1,6 @@
 ---
 titulo: Laboratório 7 - Internet das Coisas
-atividade: Protótipo de Automação Contextual de Cidade Inteligente
+atividade: Cidade Inteligente no Wokwi e Análise Preditiva com MQTT
 ---
 
 ## 1. Objetivo
@@ -12,6 +12,10 @@ escalável.
 O protótipo foi construído no **Wokwi** com um **ESP32**, três sensores e quatro
 atuadores, implementando três regras de automação urbana e exibindo estado em LCD e no
 monitor serial.
+
+---
+
+# Atividade #1 — Protótipo de automação contextual de cidade inteligente
 
 ## 2. Diagrama do sistema
 
@@ -238,7 +242,244 @@ gera histórico, não permite análise de tendência e não escala. O passo natu
 leituras por MQTT — o que a semana 6 já cobriu — e armazenar em série temporal, fechando o
 ciclo entre borda e nuvem.
 
-## 10. Como reproduzir
+---
+
+# Atividade #2 — Análise preditiva e comunicação MQTT
+
+## 10. Objetivo e dados
+
+A segunda atividade sai do tempo real e vai para o **histórico**: processar dados
+acumulados, inferir tendências, publicar alertas por MQTT e discutir a segurança dessa
+comunicação.
+
+A diferença conceitual em relação à Atividade #1 é o horizonte. Lá o sistema reage ao
+instante — a distância *agora* é menor que 30 cm. Aqui ele olha para trás e antecipa: a
+temperatura vem subindo *há três dias*, então provavelmente vai continuar. Um sistema que só
+faz a primeira coisa nunca previne nada.
+
+O dataset está em `analise/dados/leituras.csv`: **1440 leituras horárias ao longo de 60
+dias** (01/07 a 29/08/2026), com temperatura, umidade e luminosidade. Ele é simulado, como o
+enunciado permite, e foi gerado com semente fixa para ser reproduzível. A série tem ciclo
+diário, tendência sazonal de aquecimento e um episódio de calor seco entre os dias 41 e 47 —
+esse episódio existe de propósito, para que as regras de inferência tenham o que detectar.
+
+## 11. Processamento e regras de inferência
+
+O script `analise/analise_preditiva.py` usa pandas, numpy, matplotlib e paho-mqtt, e segue
+cinco passos: carregar, agregar por dia, calcular médias móveis, aplicar regras e publicar.
+
+### 11.1. Agregação e média móvel
+
+As 24 leituras de cada dia viram uma linha, guardando média, máxima e mínima. Guardar as
+três não é redundância — **cada regra olha uma coisa diferente**: a tendência usa a média,
+que é menos sensível a um pico isolado, enquanto o alerta de seca usa a máxima do dia, que é
+quando o risco de fato existe.
+
+```python
+diario = df.resample("D").agg(
+    temp_media=("temperatura", "mean"),
+    temp_max=("temperatura", "max"),
+    umid_min=("umidade", "min"),
+)
+
+d["temp_mm"] = d["temp_media"].rolling(JANELA_MEDIA_MOVEL).mean().round(2)
+d["variacao"] = d["temp_mm"].diff().round(2)
+d["subindo"] = d["variacao"] > 0
+
+# Conta a sequencia atual de dias em alta: o cumsum agrupa sequencias
+# consecutivas de True e zera a contagem em cada False.
+grupo = (~d["subindo"]).cumsum()
+d["dias_subindo"] = d.groupby(grupo).cumcount().where(d["subindo"], 0)
+```
+
+A média móvel de três dias existe para separar **tendência de ruído**. Sem ela, uma tarde
+quente seguida de uma noite fria produziria alternância constante entre "subindo" e
+"descendo", e nenhuma sequência se formaria.
+
+### 11.2. As duas regras
+
+```python
+# Regra 1 - tendencia: dispara no dia em que a sequencia ATINGE o limiar.
+if linha["dias_subindo"] == DIAS_SUBIDA_ALERTA:
+    alertas.append({"tipo": "superaquecimento", ...})
+
+# Regra 2 - estado atual: maxima alta com umidade minima baixa.
+if linha["temp_max"] > LIMIAR_TEMP_SECA and linha["umid_min"] < LIMIAR_UMID_SECA:
+    alertas.append({"tipo": "seca", ...})
+```
+
+A comparação da regra 1 é `==` e não `>=`, e essa escolha resolve um problema real. Com
+`>=`, uma alta sustentada de quinze dias geraria treze alertas idênticos, e o operador
+aprenderia a ignorar o canal — que é exatamente como sistemas de alarme perdem utilidade.
+Disparando só no dia em que a sequência **atinge** o limiar, cada alerta corresponde a um
+evento novo.
+
+A regra 2 permanece disparando enquanto a condição durar, e isso é correto: cada dia de seca
+é uma avaliação de risco nova, não a repetição da anterior.
+
+### 11.3. Saídas geradas
+
+| Arquivo | Conteúdo |
+|---|---|
+| `saida/tendencias.png` | Dois gráficos: temperatura e umidade, com médias móveis, limiares e marcação dos dias de alerta |
+| `saida/alertas.json` | Alertas com data, tipo, severidade, motivo e os valores que dispararam a regra |
+| `saida/serie_diaria.json` | Série diária completa, para conferência |
+
+## 12. Publicação e recepção por MQTT
+
+```mermaid Figura 3 — Da análise histórica ao atuador, via broker
+flowchart LR
+  CSV[("leituras.csv<br/>1440 registros")]
+  PY["analise_preditiva.py<br/>pandas + regras"]
+  JSON[("alertas.json<br/>+ graficos")]
+  BR{{"test.mosquitto.org<br/>topico /iot/alertas"}}
+  ESP["ESP32 assinante<br/>PubSubClient"]
+  LED["LED vermelho + buzzer<br/>LED amarelo piscando"]
+
+  CSV --> PY
+  PY --> JSON
+  PY -- "publish QoS 1" --> BR
+  BR -- "subscribe QoS 1" --> ESP
+  ESP --> LED
+
+  classDef an fill:#dbeafe,stroke:#3b82f6
+  classDef mq fill:#dcfce7,stroke:#22c55e
+  class PY,CSV,JSON an
+  class BR,ESP mq
+```
+
+O publicador é o script Python; o assinante é um segundo ESP32, em
+`analise/esp32_assinante/`, que reage ao tipo de alerta: **seca** acende o LED vermelho e
+aciona o buzzer, **superaquecimento** faz o LED amarelo piscar, e a ausência de alerta
+mantém o verde aceso indicando que o sistema está vivo.
+
+Dois detalhes do assinante merecem registro, porque são as armadilhas mais comuns:
+
+```cpp
+// O payload nao vem terminado em nulo. Tratar como string direto le lixo
+// de memoria depois do fim da mensagem.
+String texto;
+texto.reserve(tamanho);
+for (unsigned int i = 0; i < tamanho; i++) texto += (char)payload[i];
+```
+
+```cpp
+mqtt.setBufferSize(1024);  // o padrao do PubSubClient e 256 bytes
+```
+
+O buffer padrão de 256 bytes descarta silenciosamente mensagens maiores — o alerta
+simplesmente não chega, sem erro nenhum no log. Como o payload de alerta passa disso, o
+ajuste é obrigatório.
+
+O `loop()` também não usa `delay()` para piscar o LED amarelo: `mqtt.loop()` precisa rodar
+com frequência para processar a fila de entrada, e um `delay()` de meio segundo derrubaria a
+conexão.
+
+## 13. Segurança na comunicação MQTT
+
+O broker público `test.mosquitto.org` foi usado por conveniência de laboratório, e é preciso
+dizer com clareza o que isso significa: **qualquer pessoa no mundo pode assinar
+`/iot/alertas` e ler tudo, ou publicar alertas falsos**. Não há autenticação, não há
+criptografia e o tópico é global. Para um exercício, tudo bem; para qualquer uso real, não.
+
+### 13.1. Autenticação
+
+O primeiro passo é sair do acesso anônimo. Usuário e senha por dispositivo são o mínimo:
+
+```cpp
+mqtt.connect(id.c_str(), MQTT_USUARIO, MQTT_SENHA);
+```
+
+A forma robusta é **certificado por dispositivo (mTLS)**: cada ESP32 carrega seu próprio
+certificado, e o broker valida quem está do outro lado. A vantagem sobre senha é a
+revogação — um dispositivo perdido ou comprometido é revogado individualmente, sem trocar a
+credencial de toda a frota.
+
+### 13.2. Criptografia TLS
+
+Sem TLS, qualquer intermediário na rede lê e altera as mensagens. Com o ESP32:
+
+```cpp
+#include <WiFiClientSecure.h>
+
+WiFiClientSecure wifi;
+wifi.setCACert(CA_RAIZ);       // valida o certificado do broker
+PubSubClient mqtt(wifi);
+// porta 8883, e nao 1883
+```
+
+O ponto que costuma ser esquecido: **validar o certificado do broker**. Usar
+`setInsecure()` estabelece a conexão criptografada mas aceita qualquer servidor — o que
+protege contra escuta passiva e não protege contra um servidor falso se passando pelo
+broker.
+
+### 13.3. Gestão segura de tópicos
+
+Autenticar não basta se todo dispositivo autenticado puder ler tudo. A ACL do broker deve
+restringir cada credencial ao seu escopo:
+
+```
+# mosquitto.acl
+user sensor-ala3-leito12
+topic write hospital/ala-3/leito-12/#
+topic read  hospital/ala-3/leito-12/comandos
+
+user painel-enfermaria
+topic read  hospital/ala-3/+/vitais/#
+```
+
+Três princípios aplicados aqui: **tópico global é superfície de ataque** — `/iot/alertas`
+sem hierarquia impede qualquer restrição por escopo; **publicar e assinar são permissões
+distintas** — um sensor publica e não deveria ler comandos de outros; e o **identificador
+não deve carregar dado sensível**, porque o nome do tópico trafega em claro no cabeçalho
+mesmo com TLS ativo em algumas configurações de proxy.
+
+## 14. Reflexão sobre a integração física
+
+A Atividade #1 mostrou um sistema que decide **onde está**, e a #2 um que decide **a partir
+do que já aconteceu**. Integrá-las é o passo que falta: hoje o ESP32 da cidade inteligente
+não publica nada, e o script de análise lê um CSV que ninguém alimenta.
+
+O fechamento natural do ciclo seria o ESP32 da Atividade #1 publicar suas leituras num
+tópico, o script consumir esse histórico em vez do CSV, e os alertas resultantes voltarem
+para o ESP32 assinante. Aí existiria de fato uma malha: sensor → nuvem → análise → atuador.
+
+Duas dificuldades reais apareceriam nessa integração, e vale nomeá-las:
+
+**Relógio.** O ESP32 não tem relógio de tempo real; ao ligar, ele não sabe que horas são.
+Uma análise por data depende de sincronizar via NTP, e um dispositivo sem internet no boot
+produziria registros com timestamp errado — que estragam qualquer média móvel.
+
+**Volume e retenção.** Uma leitura por hora gera 8.760 registros por ano por sensor. Com
+cem sensores, quase um milhão. Publicar tudo e guardar tudo não escala; a saída é agregar na
+borda — enviar a média de dez minutos em vez de cada leitura — e definir política de
+retenção, exatamente o que o banco de série temporal discutido na tarefa 7.4 resolve.
+
+## 15. Como executar a Atividade #2
+
+```bash
+# Analise e publicacao
+cd analise
+pip install pandas numpy matplotlib paho-mqtt
+python analise_preditiva.py
+```
+
+No Google Colab, subir `leituras.csv` e instalar apenas `paho-mqtt`, que não vem no
+ambiente.
+
+Para o assinante: criar um projeto ESP32 no Wokwi, colar `esp32_assinante/sketch.ino`,
+`diagram.json` e `libraries.txt`, e dar Play. Ele conecta na rede `Wokwi-GUEST` e passa a
+escutar `/iot/alertas`. Rodar o script Python em seguida faz os LEDs reagirem.
+
+> [PENDENTE: executar o `analise_preditiva.py` no Colab e anexar `tendencias.png`,
+> `alertas.json` e a saída do terminal com as publicações.]
+
+> [PENDENTE: capturas da publicação e da recepção MQTT — terminal do Python publicando e o
+> monitor serial do ESP32 assinante recebendo, com o LED correspondente aceso.]
+
+---
+
+## 16. Como reproduzir a Atividade #1
 
 1. Abrir <https://wokwi.com> e criar um projeto **ESP32**.
 2. Colar `wokwi/sketch.ino` na aba de código.
@@ -254,7 +495,7 @@ ciclo entre borda e nuvem.
 > [PENDENTE: capturas de tela do circuito montado e dos três cenários da seção 7 rodando,
 > mostrando LCD e monitor serial.]
 
-## 11. Referências
+## 17. Referências
 
 - Wokwi — documentação e formato do `diagram.json`. <https://docs.wokwi.com/diagram-format>
 - Espressif. *ESP32 — ADC e limitações do ADC2 com Wi-Fi*. <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/adc.html>

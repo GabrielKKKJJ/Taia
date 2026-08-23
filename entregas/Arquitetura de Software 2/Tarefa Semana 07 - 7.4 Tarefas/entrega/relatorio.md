@@ -1,197 +1,136 @@
 ---
 titulo: Tarefa 7 - Arquitetura de Software 2
-atividade: Análise de Negócio e Design Orientado ao Domínio no Prometheus V2
+atividade: Análise de Negócio e DDD no Prometheus V2
 ---
 
-## 1. Objetivo
+## 1. Stakeholders e requisitos
 
-Aplicar análise de negócio e *Domain-Driven Design* ao sistema educacional Prometheus V2:
-identificar stakeholders e seus requisitos, classificar os domínios, propor contextos
-delimitados justificados e apresentar um mapa de contexto.
+| Stakeholder | Requisito principal |
+|---|---|
+| Aluno | Consultar notas e conteúdo com baixa latência |
+| Professor | Avaliar com rastreabilidade da nota |
+| Secretaria | Histórico oficial íntegro, com valor legal |
+| Coordenação | Relatórios consolidados e confiáveis |
+| Equipe de TI | Módulos implantáveis de forma independente |
 
-A premissa que orienta o documento é a de que **DDD é uma ferramenta de decisão sobre onde
-traçar fronteiras**, e não um estilo de codificação. A pergunta que ele responde não é
-"como escrevo esta classe", e sim "o que pertence junto e o que precisa ficar separado".
+O conflito que orienta todo o desenho está entre as duas primeiras linhas: para o aluno a
+nota precisa aparecer **rápido**; para a secretaria ela precisa ser **imutável**. As duas
+exigências puxam a arquitetura em direções opostas, e é isso que justifica separar contextos
+em vez de manter um modelo único.
 
-## 2. Stakeholders e requisitos principais
+## 2. Classificação de domínios
 
-| Stakeholder | O que espera do sistema | Requisito principal |
+| Domínio | Tipo | Justificativa |
 |---|---|---|
-| **Aluno** | Ver aulas, entregar trabalhos, acompanhar notas | Disponibilidade e latência baixa na consulta |
-| **Professor** | Publicar conteúdo, avaliar, acompanhar turma | Correção da avaliação e rastreabilidade da nota |
-| **Coordenação acadêmica** | Acompanhar desempenho e evasão | Relatórios consolidados e confiáveis |
-| **Secretaria** | Matrícula, histórico, documentos oficiais | Integridade e valor legal do registro |
-| **Equipe de TI** | Operar, escalar e evoluir o sistema | Modularidade e observabilidade |
-| **Instituição** | Conformidade e custo | LGPD, auditoria, previsibilidade de gasto |
+| Avaliação e Aprendizagem | **Core** | Razão de ser do LMS; a regra de média e aprovação é própria da instituição |
+| Entrega de Conteúdo | **Core** | A experiência de aula é o produto percebido pelo aluno |
+| Registro Acadêmico | Supporting | Documento oficial, com regras próprias, mas padronizado pelo setor |
+| Gestão Acadêmica (matrícula) | Supporting | Necessário ao core, sem diferencial competitivo |
+| Comunicação (fórum, avisos) | Supporting | Sustenta engajamento; regras simples |
+| Relatórios e BI | Supporting | Alto valor gerencial, baixo diferencial técnico |
+| Identidade e Acesso | Generic | Problema resolvido: usar provedor OIDC |
+| Notificação | Generic | Serviço de mercado |
 
-Duas observações de análise de negócio importam aqui.
+A consequência prática é de alocação: **o time mais forte vai para o core**. Construir
+autenticação do zero enquanto o cálculo de média está mal modelado é erro de priorização.
 
-A primeira é que **os stakeholders discordam sobre o que é urgente**. Para o aluno, a nota
-precisa aparecer imediatamente; para a secretaria, ela precisa ser correta e imutável.
-Essas duas exigências puxam a arquitetura em direções opostas — velocidade de leitura
-versus integridade transacional — e é exatamente esse conflito que justifica separar
-contextos em vez de manter um modelo único.
+## 3. Mapa de contexto
 
-A segunda é que **a palavra "nota" significa coisas diferentes conforme quem fala**. Para o
-professor, é um valor que pode ser revisto. Para a secretaria, é um registro histórico
-lacrado. Tratar as duas como a mesma entidade é a origem clássica do modelo anêmico que
-tenta servir a todos e não serve bem a ninguém.
-
-## 3. Classificação de domínios
-
-O critério de classificação é o valor competitivo: o domínio **core** é aquele em que errar
-significa perder a razão de existir do produto; o **supporting** é necessário mas não
-diferencia; o **generic** é problema resolvido que se compra pronto.
-
-| Domínio | Classificação | Justificativa |
-|---|---|---|
-| **Avaliação e Aprendizagem** | **Core** | É a razão de ser de um LMS. A regra de cálculo de média, recuperação e aprovação é específica da instituição e muda o resultado da vida do aluno |
-| **Entrega de Conteúdo** | **Core** | Experiência de aprendizagem depende diretamente de vídeo e material chegarem bem |
-| **Gestão Acadêmica** (matrícula, turmas) | **Supporting** | Necessário para o core funcionar, mas segue regras padronizadas do setor |
-| **Comunicação** (avisos, fórum) | **Supporting** | Importante para engajamento; não diferencia a instituição |
-| **Identidade e Acesso** | **Generic** | Autenticação é problema resolvido — usar Keycloak ou provedor SSO |
-| **Notificação** (e-mail, push) | **Generic** | Serviço de mercado; não vale construir |
-| **Relatórios e BI** | **Supporting** | Alto valor gerencial, baixo diferencial competitivo |
-
-A consequência prática dessa classificação é de alocação de esforço: **o time mais forte
-trabalha no core**. Construir do zero um serviço de autenticação enquanto o cálculo de
-média está mal modelado é um erro de priorização que o DDD ajuda a evitar.
-
-## 4. Contextos delimitados propostos
-
-| Contexto | Responsabilidade | Linguagem ubíqua |
-|---|---|---|
-| **Avaliação** | Registrar avaliações, calcular média e situação | Avaliação, Rubrica, Tentativa, Situação, Peso |
-| **Aprendizagem** | Trilha, progresso, conclusão de módulo | Trilha, Módulo, Progresso, Conclusão |
-| **Conteúdo** | Vídeos, materiais, versionamento e publicação | Recurso, Versão, Publicação, Transcodificação |
-| **Matrícula** | Vínculo aluno-turma-período | Matrícula, Turma, Período, Vaga |
-| **Registro Acadêmico** | Histórico oficial e documentos com valor legal | Histórico, Ata, Certificado, Lançamento |
-| **Comunicação** | Fórum, avisos, mensagens | Tópico, Aviso, Mensagem, Participante |
-| **Identidade** | Autenticação e perfis | Usuário, Papel, Sessão, Permissão |
-
-### 4.1. Por que "Avaliação" e "Registro Acadêmico" são contextos separados
-
-Esta é a decisão de fronteira mais importante do desenho, e vale justificá-la em detalhe.
-
-Os dois lidam com notas. A tentação natural é unificá-los. Mas eles têm **regras de
-mudança opostas**:
-
-- Em **Avaliação**, a nota é mutável por natureza. O professor corrige, o aluno faz
-  recuperação, a rubrica é reaplicada. O modelo precisa suportar revisão.
-- Em **Registro Acadêmico**, a nota é um **fato consumado**. Depois de lançada em ata, ela
-  não muda — uma correção posterior não sobrescreve, gera um novo lançamento com
-  justificativa e trilha de auditoria, porque o documento tem valor legal.
-
-Unir os dois obrigaria o mesmo agregado a ser simultaneamente editável e imutável. O
-resultado inevitável seria uma explosão de flags de estado e regras condicionais — o
-sintoma clássico de fronteira mal traçada. Separando, cada contexto fica com um modelo
-coerente, e a passagem de um para o outro vira um evento explícito de domínio:
-`NotaLancadaEmAta`.
-
-### 4.2. Por que "Conteúdo" é separado de "Aprendizagem"
-
-Conteúdo trata do **artefato**: um vídeo tem versão, formato, transcodificação, direitos de
-uso. Aprendizagem trata do **percurso**: um aluno assistiu, progrediu, concluiu. O mesmo
-vídeo participa de várias trilhas, e a mesma trilha sobrevive à substituição de um vídeo.
-São ciclos de vida independentes.
-
-## 5. Mapa de contexto
-
-```mermaid Figura 1 — Mapa de contexto do Prometheus V2, com atores e relações
+```mermaid Figura 1 — Contextos delimitados e contratos entre eles
 flowchart TB
   ALUNO(["Aluno"])
   PROF(["Professor"])
   SEC(["Secretaria"])
-  COORD(["Coordenação"])
 
   IDENT["Identidade<br/><i>generic</i>"]
   MATR["Matrícula<br/><i>supporting</i>"]
   AVAL["Avaliação<br/><b>core</b>"]
-  APRE["Aprendizagem<br/><b>core</b>"]
   CONT["Conteúdo<br/><b>core</b>"]
+  APRE["Aprendizagem<br/><b>core</b>"]
   REG["Registro Acadêmico<br/><i>supporting</i>"]
-  COM["Comunicação<br/><i>supporting</i>"]
   NOT["Notificação<br/><i>generic</i>"]
 
-  ALUNO --> APRE
   ALUNO --> AVAL
+  ALUNO --> APRE
   PROF --> AVAL
   PROF --> CONT
   SEC --> REG
-  SEC --> MATR
-  COORD --> REG
 
-  IDENT -- "OHS/PL" --> MATR
-  IDENT -- "OHS/PL" --> AVAL
-  MATR -- "upstream:<br/>quem cursa o quê" --> AVAL
+  IDENT -- "OHS / Published Language" --> MATR
+  MATR -- "upstream: quem cursa o quê" --> AVAL
   MATR -- "upstream" --> APRE
-  CONT -- "ACL:<br/>recurso publicado" --> APRE
-  AVAL -- "evento:<br/>NotaLancadaEmAta" --> REG
-  AVAL -- "evento:<br/>NotaPublicada" --> NOT
-  COM -- "evento" --> NOT
+  CONT -- "ACL" --> APRE
+  AVAL -- "evento: NotaLancadaEmAta" --> REG
+  NOT -- "conformist: contrato do serviço" --> AVAL
 
-  classDef core fill:#dcfce7,stroke:#22c55e,stroke-width:2px
+  classDef core fill:#dcfce7,stroke:#16a34a,stroke-width:3px
   classDef sup fill:#dbeafe,stroke:#3b82f6
-  classDef gen fill:#f3f4f6,stroke:#9ca3af
+  classDef gen fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:4 3
   classDef ator fill:#fef3c7,stroke:#f59e0b
-  class AVAL,APRE,CONT core
-  class MATR,REG,COM sup
+  class AVAL,CONT,APRE core
+  class MATR,REG sup
   class IDENT,NOT gen
-  class ALUNO,PROF,SEC,COORD ator
+  class ALUNO,PROF,SEC ator
 ```
 
-### 5.1. Padrões de relacionamento adotados
+A seta de **Notificação** aponta para Avaliação porque *conformist* descreve quem se
+submete ao contrato de quem: é Avaliação que se adapta ao formato ditado pelo serviço
+externo, e não o contrário.
 
-| Relação | Padrão | Justificativa |
+## 4. Os contextos, em uma linha cada
+
+| Contexto | Responsabilidade | Linguagem ubíqua |
 |---|---|---|
-| Identidade → demais | **Open Host Service / Published Language** | Serviço genérico com contrato estável (OIDC); muitos consumidores, nenhum negocia formato |
-| Matrícula → Avaliação | **Customer/Supplier** | Avaliação depende de saber quem cursa o quê; a fronteira é negociada entre os times |
-| Conteúdo → Aprendizagem | **Anticorruption Layer** | Aprendizagem traduz o modelo de recurso para o seu próprio conceito de material da trilha, sem herdar detalhes de transcodificação |
-| Avaliação → Registro | **Event-driven** | O lançamento em ata é um fato, não uma chamada. Assíncrono e auditável |
-| Avaliação/Comunicação → Notificação | **Conformist** | O serviço de notificação é externo; o sistema se adapta ao contrato dele |
+| **Avaliação** | Registrar avaliações, calcular média e situação | Avaliação, Rubrica, Tentativa, Situação |
+| **Aprendizagem** | Trilha, progresso, conclusão de módulo | Trilha, Módulo, Progresso, Conclusão |
+| **Conteúdo** | Vídeos e materiais, versão e publicação | Recurso, Versão, Publicação |
+| **Registro Acadêmico** | Histórico oficial e documentos com valor legal | Histórico, Ata, Lançamento, Certificado |
+| **Matrícula** | Vínculo aluno–turma–período | Matrícula, Turma, Período, Vaga |
+| **Identidade** | Autenticação e perfis | Usuário, Papel, Sessão |
+| **Notificação** | Entrega de avisos por canal | Canal, Template, Entrega |
 
-A **Anticorruption Layer** entre Conteúdo e Aprendizagem merece nota: sem ela, o conceito
-de "codec" e "bitrate" vazaria para dentro do domínio de progresso do aluno, que não tem
-nada a ver com isso. A ACL é a defesa contra o modelo de um contexto contaminar o outro.
+*Comunicação* e *Relatórios e BI*, classificados na seção 2, não aparecem no mapa por
+simplicidade de leitura: ambos são consumidores de eventos e não alteram as fronteiras
+discutidas aqui.
 
-## 6. Aplicando DDD a requisitos ambíguos
+## 5. Justificativa das decisões
 
-O enunciado da semana levanta a questão de como usar DDD quando o stakeholder não sabe
-dizer o que quer. A resposta que este desenho ilustra tem três movimentos:
+**Avaliação separada de Registro Acadêmico.** É a fronteira mais importante, e vem de uma
+divergência real de regra de mudança. Em Avaliação a nota é mutável — o professor corrige, o
+aluno recupera. Em Registro ela é um fato consumado: uma correção não sobrescreve, gera novo
+lançamento com justificativa, porque o documento tem valor legal. Unir os dois obrigaria o
+mesmo agregado a ser simultaneamente editável e imutável, produzindo flags de estado e
+regras condicionais espalhadas — o sintoma clássico de fronteira mal traçada. Separando, a
+passagem vira um evento explícito: `NotaLancadaEmAta`.
 
-**Buscar a palavra, não a tela.** Quando o pedido é vago — "quero acompanhar melhor os
-alunos" — a pergunta produtiva não é "que botão você quer", e sim "o que significa
-*acompanhar* no seu dia". A ambiguidade quase sempre está no vocabulário, e é ali que ela
-precisa ser resolvida.
+**Conteúdo separado de Aprendizagem.** Conteúdo trata do *artefato* — um vídeo tem versão,
+formato, direitos de uso. Aprendizagem trata do *percurso* — o aluno assistiu, progrediu,
+concluiu. O mesmo vídeo participa de várias trilhas, e a trilha sobrevive à substituição do
+vídeo. Ciclos de vida independentes.
 
-**Tratar sinônimo divergente como sinal de fronteira.** Quando duas pessoas usam a mesma
-palavra com sentidos diferentes — "nota" para o professor e para a secretaria — isso não é
-confusão a ser eliminada. É evidência de que existem dois contextos, e forçar um vocabulário
-único destruiria informação legítima.
+**Anticorruption Layer entre Conteúdo e Aprendizagem.** Sem ela, conceitos como codec e
+transcodificação vazariam para dentro do domínio de progresso do aluno, que não tem nada a
+ver com isso.
 
-**Adiar o que é incerto e proteger o que é estável.** Requisito mal definido em domínio
-*supporting* pode ser implementado de forma simples e revisto depois. Em domínio *core*, a
-ambiguidade precisa ser resolvida antes, porque errar a fronteira ali custa caro. O que
-mantém o sistema sustentável é que a incerteza fique confinada dentro de um contexto, em vez
-de atravessar todos eles.
+**Identidade como Open Host Service.** Contrato estável e padronizado (OIDC), com muitos
+consumidores e nenhum negociando formato — o caso exato em que publicar uma linguagem
+comum é melhor que integrar par a par.
 
-## 7. Conclusão
+**Efeito em escalabilidade e manutenibilidade.** Fronteira boa não é a que separa mais, é a
+que faz a mudança **parar de se propagar**: alterar a regra de arredondamento da média fica
+contido em Avaliação, sem alcançar histórico, relatórios e certificados. E como consulta de
+nota e emissão de histórico têm perfis de carga opostos — alta e em rajada contra rara e
+pesada — cada contexto escala no seu ritmo, com cache e réplicas de um lado e consistência
+transacional forte do outro.
 
-A contribuição do DDD ao Prometheus V2 não é um diagrama mais bonito: é o critério para
-decidir **onde o sistema pode ser cortado sem quebrar significado**. As fronteiras propostas
-aqui saem de conflitos reais de negócio — nota mutável contra nota lacrada, artefato contra
-percurso — e não de uma divisão técnica por camadas.
+A ressalva devida: contexto delimitado custa tradução entre modelos e consistência
+eventual. Aplicá-lo a um sistema pequeno é complexidade sem retorno. O critério é a
+existência de divergência real de linguagem ou de regra de mudança — que no Prometheus
+existe, e está documentada acima.
 
-A consequência prática é a escalabilidade e a manutenibilidade que a atividade pede: cada
-contexto pode ser implantado, escalado e evoluído no seu próprio ritmo, e uma mudança de
-regra na avaliação não obriga a tocar no registro acadêmico. Fronteiras boas não são as que
-separam mais, e sim as que fazem a mudança parar de se propagar.
+## 6. Referências
 
-## 8. Referências
-
-- Evans, E. *Domain-Driven Design: Tackling Complexity in the Heart of Software*. Addison-Wesley.
+- Evans, E. *Domain-Driven Design*. Addison-Wesley.
 - Vernon, V. *Implementing Domain-Driven Design*. Addison-Wesley — Context Mapping.
-- Brandolini, A. *Strategic Domain Driven Design with Context Mapping*. <https://www.infoq.com/articles/ddd-contextmapping/>
-- Fowler, M. *BoundedContext*. <https://martinfowler.com/bliki/BoundedContext.html>
 - Khononov, V. *Learning Domain-Driven Design*. O'Reilly — classificação de subdomínios.
 - Material da semana: Módulo 7 — Análise de negócio e DDD.

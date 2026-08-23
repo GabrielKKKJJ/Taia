@@ -1,8 +1,8 @@
 # 6.2 Fórum — Programação 6 (Semana 6)
 
 > Formato de entrega: `discussion_topic`. Cole o texto direto no fórum do Canvas.
-> As respostas abaixo se apoiam no que o grupo implementou no capstone Battle Tanks,
-> incluindo os números do benchmark que rodamos.
+> As respostas abaixo se apoiam no capstone Battle Tanks. Onde descrevem o que já está
+> implementado, dizem isso; onde descrevem o que ainda é proposta, também.
 
 ---
 
@@ -27,15 +27,20 @@ placar global, um sistema de replay — significa mexer no hub. Com MQTT, o cons
 o tópico e o backend do jogo não muda uma linha.
 
 **Como o QoS afeta a experiência de jogo.**
-O QoS deixa escolher a garantia de entrega **mensagem a mensagem**, e é isso que o torna
-útil aqui. Posição de tanque vai como QoS 0: um pacote perdido é corrigido pelo pacote
-seguinte, dezenas de milissegundos depois, e o jogador não percebe. Captura de power-up e
-fim de partida vão como QoS 1, porque perder um deles deixa clientes com visões diferentes
-do mundo — um jogador vê o escudo ativo, o outro não.
+O QoS deixa escolher a garantia de entrega **mensagem a mensagem**, e é aí que está o
+potencial. Sendo honesto sobre o nosso estado atual: **hoje publicamos tudo com QoS 1**, sem
+diferenciação — o cliente Angular usa `qos: 1` fixo no `publish`, e o backend publica com
+`AtLeastOnce` em todos os tópicos. Funciona, mas desperdiça a principal vantagem do
+protocolo.
 
-Não usamos QoS 2 no projeto. O handshake de quatro vias custa latência, e a garantia extra
-não compra nada quando o consumidor é idempotente: aplicar duas vezes "vida do jogador X é
-40" dá o mesmo resultado.
+A diferenciação que faz sentido, e que pretendo propor ao grupo, é: posição de tanque em
+QoS 0, porque um pacote perdido é corrigido pelo seguinte dezenas de milissegundos depois e
+o jogador não percebe; dano e destruição de cenário em QoS 1, porque perder um deles deixa
+clientes com visões diferentes do mundo.
+
+QoS 2 não se justifica em nenhum dos casos: o handshake de quatro vias custa latência, e a
+garantia extra não compra nada quando o consumidor é idempotente — aplicar duas vezes "vida
+do jogador X é 40" dá o mesmo resultado.
 
 **Trade-offs.**
 
@@ -56,15 +61,19 @@ porque só fazem sentido dentro da sessão e o RPC tipado do hub evita serializa
 mão. Dano e destruição de parede foram para o MQTT, combinados com Redis, porque precisam
 sobreviver à sessão: um jogador que cai e volta reconstrói o cenário como ele está.
 
+Um ponto ainda em aberto: power-up hoje é resolvido localmente no cliente, sem passar nem
+pelo hub nem pelo broker. Pelo critério abaixo ele deveria ir para o MQTT, e é uma das
+coisas que pretendo levantar com o grupo.
+
 A régua que adotamos: **se o evento só vale dentro da sessão, é SignalR; se vale depois, ou
 para alguém de fora, é MQTT.**
 
 ### Discussão 2 — Priorização de eventos em sistemas em tempo real
 
 **Como priorizar.** O critério que usamos é a consequência de perder o evento, não a
-frequência dele. Colisão e disparo mudam o estado do jogo; chat, não. Isso se traduz
-diretamente em QoS e em hierarquia de tópicos, que permite ao cliente assinar só o que lhe
-interessa.
+frequência dele. Colisão e disparo mudam o estado do jogo; chat, não. Isso deveria se
+traduzir em QoS diferenciado — o que ainda não fazemos — e já se traduz na hierarquia de
+tópicos, que permite ao cliente assinar só o que lhe interessa.
 
 **Estratégias para garantir entrega do que é crítico.** QoS 1 com consumidor idempotente é
 a base. Junto com isso, identificador por evento para descartar duplicata, e reconstrução de

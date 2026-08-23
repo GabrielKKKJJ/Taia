@@ -85,14 +85,24 @@ function separarPendencias(markdown) {
     mantidas.push(linhas[i++]);
   }
 
-  // Descarta titulos que ficaram sem corpo.
+  // Descarta titulos que ficaram sem corpo. Um titulo que so tem subtitulos
+  // abaixo NAO esta vazio: "## 3. Atividade #1" seguido de "### 3.1. ..." tem
+  // conteudo, so que um nivel adiante.
   const saida = [];
   for (let k = 0; k < mantidas.length; k++) {
     const m = mantidas[k].match(/^(#{2,4})\s/);
     if (m) {
+      const nivel = m[1].length;
       let j = k + 1;
       let vazio = true;
-      while (j < mantidas.length && !/^#{2,4}\s/.test(mantidas[j])) {
+      while (j < mantidas.length) {
+        const sub = mantidas[j].match(/^(#{2,4})\s/);
+        if (sub) {
+          // Titulo mais profundo = subsecao, entao a secao tem conteudo.
+          // Titulo de mesmo nivel ou acima = a secao acabou sem corpo.
+          if (sub[1].length > nivel) vazio = false;
+          break;
+        }
         if (mantidas[j].trim()) { vazio = false; break; }
         j++;
       }

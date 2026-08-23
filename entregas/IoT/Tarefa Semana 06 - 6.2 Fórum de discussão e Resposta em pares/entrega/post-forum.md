@@ -83,8 +83,9 @@ Tinkercad, ou usou outra ferramenta para essa parte?
 
 **Modelo B — se o colega falou de TagoIO ou Blynk:**
 
-Boa comparação, e concordo que para protótipo o TagoIO resolve muito rápido justamente por
-já entregar painel pronto. O que me chamou atenção pesquisando as plataformas profissionais
+Boa comparação. Concordo que para protótipo o TagoIO resolve mais rápido que o Blynk por já
+entregar painel de dados pronto, enquanto o Blynk é mais forte no app móvel — o TagoIO puxa
+para análise, o Blynk para controle na mão do usuário. O que me chamou atenção pesquisando as plataformas profissionais
 foi a diferença no gerenciamento de dispositivos — coisas como provisionamento em lote e
 atualização remota de firmware, que só viram problema quando a frota cresce. Na sua
 pesquisa, você viu alguma plataforma que faça essa ponte bem, servindo tanto para protótipo

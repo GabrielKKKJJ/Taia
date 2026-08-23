@@ -86,19 +86,16 @@ uma fronteira é manutenção; um requisito que muda atravessando cinco módulos
 
 **Modelo A — se o colega focou nos benefícios técnicos dos bounded contexts:**
 
-Concordo com os pontos que você levantou, principalmente sobre a independência de deploy.
-Eu acrescentaria um critério que me ajudou a decidir onde cortar: quando duas áreas do
-negócio usam a mesma palavra com sentidos diferentes, isso já é a fronteira aparecendo
-sozinha. No caso do Prometheus, "nota" é mutável para o professor e imutável para a
-secretaria, e foi essa divergência — mais do que qualquer razão técnica — que justificou
-separar os contextos. Como vocês decidiram onde traçar as fronteiras no caso de vocês, pelo
-vocabulário ou pela estrutura dos módulos?
+Concordo com os pontos que você levantou, principalmente sobre a independência de deploy. O
+critério que mais me ajudou a decidir onde cortar foi outro: quando duas áreas usam a mesma
+palavra com sentidos diferentes — "nota" é mutável para o professor e imutável para a
+secretaria — a fronteira já está aparecendo sozinha. Como vocês decidiram onde traçar as
+fronteiras, pelo vocabulário ou pela estrutura dos módulos?
 
 **Modelo B — se o colega falou de requisitos ambíguos:**
 
 Gostei da abordagem, e concordo que insistir em documento detalhado antes de começar
-raramente funciona. Um complemento: quando a ambiguidade está num domínio de suporte, dá
-para implementar a versão simples e revisar depois, mas num domínio core vale travar e
-resolver antes, porque errar a fronteira ali é caro de desfazer. Essa distinção me ajudou a
-decidir onde investir tempo de análise. Vocês usaram alguma técnica de descoberta com os
-stakeholders, tipo Event Storming, ou foi mais por entrevista tradicional?
+raramente funciona. Eu acrescentaria uma distinção que me ajudou: ambiguidade em domínio de
+suporte dá para resolver implementando a versão simples e revisando depois, mas em domínio
+core vale travar e resolver antes, porque errar a fronteira ali é caro de desfazer. Vocês
+usaram alguma técnica de descoberta com os stakeholders, tipo Event Storming?

@@ -12,8 +12,10 @@
 Na minha leitura, o avanço da IoT depende menos de sensores melhores e mais de quatro
 tecnologias que resolvem os gargalos em volta deles.
 
-**Conectividade de baixa potência.** As redes LPWAN — LoRaWAN, NB-IoT, Sigfox — mudaram a
-equação de o que é viável. Um sensor LoRaWAN alcança quilômetros e dura anos com uma
+**Conectividade de baixa potência.** As redes LPWAN — LoRaWAN e NB-IoT principalmente — mudaram a
+equação do que é viável. O Sigfox aparece na literatura, mas vale a ressalva de que a
+empresa passou por recuperação judicial em 2022 e hoje é uma aposta arriscada para projeto
+novo. Um sensor LoRaWAN alcança quilômetros e dura anos com uma
 bateria, porque transmite pouquíssimos dados e dorme quase o tempo todo. Isso viabiliza
 medição em zona rural e em subsolo, onde Wi-Fi nunca chegaria. O 5G entra por outro lado,
 com fatiamento de rede e latência baixa para os casos em que o atraso importa, como veículo
