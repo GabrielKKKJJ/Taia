@@ -1,0 +1,4 @@
+# Bibliotecas usadas pelo sketch. O Wokwi baixa automaticamente na simulacao.
+DHT sensor library
+Adafruit Unified Sensor
+LiquidCrystal I2C
