@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { lerZip, escreverZip } = require('./zip');
+const { realcar } = require('./realce');
 
 const PLACEHOLDER_TITULO = '[Tarefa ou Labortatorio x] - [Materia]';
 const PLACEHOLDER_CORPO = '[atividade]';
@@ -85,6 +86,48 @@ function dimensoesImagem(buf) {
   return { largura: 600, altura: 400 };
 }
 
+/**
+ * Bloco de codigo: uma tabela de celula unica, com borda e fundo.
+ *
+ * Tabela em vez de paragrafos soltos porque so ela produz a caixa continua —
+ * paragrafos com sombreamento deixam faixas brancas entre as linhas. O texto
+ * segue selecionavel e pesquisavel, ao contrario de uma imagem.
+ */
+function blocoCodigo(codigo, idioma) {
+  const linhas = realcar(codigo, idioma);
+
+  const paragrafos = linhas.map((tokens, i) => {
+    const runs = tokens.map((t) =>
+      run(t.texto || ' ', { mono: true, tam: 18, cor: t.cor, italico: t.italico })
+    ).join('');
+    return '<w:p><w:pPr>' +
+      `<w:spacing w:after="0" w:before="${i === 0 ? 40 : 0}" w:line="240" w:lineRule="auto"/>` +
+      '<w:ind w:firstLine="0" w:start="0"/><w:jc w:val="start"/>' +
+      '</w:pPr>' + runs + '</w:p>';
+  }).join('');
+
+  const rotulo = idioma
+    ? '<w:p><w:pPr><w:spacing w:after="40" w:before="0" w:line="240" w:lineRule="auto"/>' +
+      '<w:jc w:val="end"/></w:pPr>' +
+      run(idioma, { mono: true, tam: 15, cor: '8B949E' }) + '</w:p>'
+    : '';
+
+  return '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/>' +
+    '<w:tblBorders>' +
+    ['top', 'left', 'bottom', 'right']
+      .map((b) => `<w:${b} w:val="single" w:sz="4" w:space="0" w:color="D8DEE4"/>`).join('') +
+    '</w:tblBorders>' +
+    '<w:tblCellMar>' +
+    '<w:top w:w="80" w:type="dxa"/><w:left w:w="140" w:type="dxa"/>' +
+    '<w:bottom w:w="80" w:type="dxa"/><w:right w:w="140" w:type="dxa"/>' +
+    '</w:tblCellMar></w:tblPr>' +
+    '<w:tr><w:tc><w:tcPr><w:tcW w:w="5000" w:type="pct"/>' +
+    '<w:shd w:val="clear" w:fill="F6F8FA"/></w:tcPr>' +
+    rotulo + paragrafos +
+    '</w:tc></w:tr></w:tbl>' +
+    par('', { antes: 0, depois: 60 });   // respiro depois da caixa
+}
+
 function celula(conteudo, { cabecalho = false, larguraPct } = {}) {
   return '<w:tc><w:tcPr>' +
     (larguraPct ? `<w:tcW w:w="${larguraPct}" w:type="pct"/>` : '') +
@@ -128,11 +171,7 @@ function markdownParaWml(md, { baseImagens, proximoRid }) {
       i++;
       while (i < linhas.length && !/^\s*```/.test(linhas[i])) buf.push(linhas[i++]);
       i++;
-      if (idioma) saida.push(par(run(idioma, { tam: 18, cor: '666666', italico: true }), { antes: 120, depois: 0 }));
-      buf.forEach((l, k) => saida.push(par(
-        run(l || ' ', { mono: true, tam: 19 }),
-        { antes: k === 0 ? 40 : 0, depois: k === buf.length - 1 ? 120 : 0, linha: 240, recuo: 200, fundo: 'F5F5F5' }
-      )));
+      saida.push(blocoCodigo(buf.join('\n'), idioma));
       continue;
     }
 

@@ -21,6 +21,7 @@ const fs = require('fs');
 const path = require('path');
 const { gerarDocx } = require('./lib/docx');
 const { renderizarDiagramas } = require('./lib/mermaid');
+const { renderizarBlocos } = require('./lib/codigo');
 const { nomeSeguro, pad2 } = require('./lib/util');
 
 const RAIZ = path.resolve(__dirname, '..');
@@ -117,6 +118,23 @@ function separarPendencias(markdown) {
   };
 }
 
+/** Acha blocos de codigo com linguagem declarada, exceto mermaid. */
+function extrairCodigo(markdown, pastaAssets) {
+  const blocos = [];
+  const re = /^[ \t]*```([a-zA-Z0-9+#-]+)[ \t]*$\n([\s\S]*?)^[ \t]*```[ \t]*$/gm;
+  let m;
+  while ((m = re.exec(markdown))) {
+    if (m[1].toLowerCase() === 'mermaid') continue;
+    blocos.push({
+      original: m[0],
+      idioma: m[1],
+      codigo: m[2].replace(/\n$/, ''),
+      saida: path.join(pastaAssets, `codigo${blocos.length + 1}.png`),
+    });
+  }
+  return blocos;
+}
+
 /** Acha blocos ```mermaid e devolve os itens a renderizar. */
 function extrairMermaid(markdown, pastaAssets) {
   const blocos = [];
@@ -198,6 +216,29 @@ function extrairMermaid(markdown, pastaAssets) {
     });
   }
 
+  // 3) Blocos de codigo viram imagem estilizada, no estilo do Carbon.
+  //    Roda depois do mermaid para nao capturar os blocos ```mermaid.
+  const trechos = extrairCodigo(markdown, pastaAssets);
+  let codigoOk = 0;
+
+  if (trechos.length && cfg.codigo?.comoImagem !== false) {
+    const resultados = await renderizarBlocos(
+      trechos.map((t) => ({ codigo: t.codigo, idioma: t.idioma, saida: t.saida })),
+      cfg.codigo || {}
+    );
+    trechos.forEach((trecho, i) => {
+      const r = resultados[i];
+      if (r && r.ok) {
+        codigoOk++;
+        const rel = path.relative(path.dirname(arqMd), trecho.saida).replace(/\\/g, '/');
+        markdown = markdown.replace(trecho.original, `![](${rel})`);
+      }
+      // Falhou: deixa o bloco como esta. O docx.js desenha a caixa de texto
+      // com realce, que continua legivel.
+      else if (r) falhas.push(`codigo: ${r.erro}`);
+    });
+  }
+
   const rotuloTipo = { Lab: 'Laboratório', Tarefa: 'Tarefa', Projeto: 'Projeto', Quiz: 'Questionário' }[meta.tipo] || 'Atividade';
   const titulo = frente.titulo || `${rotuloTipo}${meta.semana ? ` ${meta.semana}` : ''} - ${meta.curso || cfg.aluno}`;
   const atividade = frente.atividade || meta.tarefa || 'Atividade';
@@ -221,6 +262,7 @@ function extrairMermaid(markdown, pastaAssets) {
   console.log(`  Titulo da capa: ${titulo}`);
   console.log(`  Atividade:      ${atividade}`);
   if (blocos.length) console.log(`  Diagramas mermaid: ${diagramasOk}/${blocos.length} renderizados`);
+  if (trechos.length) console.log(`  Blocos de codigo: ${codigoOk}/${trechos.length} como imagem`);
   falhas.forEach((f) => console.log(`  ! diagrama falhou: ${f}`));
   if (r.imagens) console.log(`  Imagens embutidas: ${r.imagens}`);
   if (pendencias.length) {
