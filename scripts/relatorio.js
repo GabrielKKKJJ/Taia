@@ -22,6 +22,7 @@ const path = require('path');
 const { gerarDocx } = require('./lib/docx');
 const { renderizarDiagramas } = require('./lib/mermaid');
 const { renderizarBlocos } = require('./lib/codigo');
+const { converterParaPdf } = require('./lib/pdfExport');
 const { nomeSeguro, pad2 } = require('./lib/util');
 
 const RAIZ = path.resolve(__dirname, '..');
@@ -267,6 +268,13 @@ function extrairMermaid(markdown, pastaAssets) {
   if (r.imagens) console.log(`  Imagens embutidas: ${r.imagens}`);
   if (pendencias.length) {
     console.log(`  ${pendencias.length} pendencia(s) retiradas do documento -> ${path.relative(RAIZ, arqPendencias)}`);
+  }
+
+  // 4) .docx vira .pdf: a entrega final e sempre em PDF.
+  if (cfg.pdf?.gerar !== false) {
+    const pdf = converterParaPdf(saida);
+    if (pdf.ok) console.log(`PDF gerado: ${path.relative(RAIZ, pdf.saida)}`);
+    else console.log(`  ! conversao para PDF falhou: ${pdf.erro}`);
   }
 })().catch((e) => {
   console.error('Erro:', e.message);

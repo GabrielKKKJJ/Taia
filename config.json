@@ -41,5 +41,9 @@
     "maxColunas": 96,
     "maxLinhas": 60
   },
-  "_codigo": "Blocos de codigo como imagem estilizada. tema: claro|escuro. Bloco acima de maxLinhas cai para caixa de texto."
+  "_codigo": "Blocos de codigo como imagem estilizada. tema: claro|escuro. Bloco acima de maxLinhas cai para caixa de texto.",
+  "pdf": {
+    "gerar": true
+  },
+  "_pdf": "Converte o .docx gerado para .pdf com o LibreOffice (soffice --convert-to pdf). A entrega final e o PDF."
 }
