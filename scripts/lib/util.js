@@ -84,6 +84,12 @@ function semanaPorData(inicioCurso, referencia) {
   return null;
 }
 
+/** Nome de pasta/exibicao do curso: apelido do config.json, ou o codigo/nome bruto. */
+function materiaDe(curso, apelidos = {}) {
+  const ap = apelidos[String(curso.id)];
+  return nomeSeguro(ap || curso.course_code || curso.name || `curso-${curso.id}`, 40);
+}
+
 /** Classifica a entrega como Lab ou Tarefa a partir do titulo. */
 function detectarTipo(titulo = '') {
   const t = String(titulo).toLowerCase();
@@ -199,5 +205,5 @@ function carregarEnv(raiz) {
 module.exports = {
   decodificarEntidades, nomeSeguro, slug, pad2, garantirPasta,
   detectarSemana, detectarTipo, htmlParaMarkdown, extrairArquivos,
-  arquivoUtil, prioridadeArquivo, formatarData, carregarEnv,
+  arquivoUtil, prioridadeArquivo, formatarData, carregarEnv, materiaDe,
 };

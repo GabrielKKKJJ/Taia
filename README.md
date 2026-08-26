@@ -125,6 +125,49 @@ npm run teste                       # autoteste offline do gerador de .docx
 
 ---
 
+## Painel web
+
+Um dashboard local (React + shadcn/ui) pra acompanhar tudo sem abrir o chat:
+status de cada atividade, relatório/pendências/revisão direto na tela, PDF, e
+botões que disparam a automação sozinha.
+
+Primeira vez:
+
+```powershell
+cd painel
+npm install
+npm run build
+cd ..
+```
+
+Rodar:
+
+```powershell
+npm run painel
+```
+
+Abre em <http://127.0.0.1:4848> (só local — o servidor nunca escuta na rede).
+Depois de mexer no front (`painel/src/`), rode `npm run build` de novo pra
+publicar; em desenvolvimento, `cd painel && npm run dev` sobe com hot reload
+e recarrega a API do :4848 via proxy.
+
+Botões:
+
+- **Coletar do Canvas** / **Gerar resumo** — mesmos scripts do dia a dia.
+- **Rodar rodada** — dispara `/atividades` sozinho: coleta, escreve os
+  relatórios, gera `.docx`/`.pdf` e chama o revisor, sem digitar nada no chat.
+  Pede confirmação antes, porque edita o repositório sem supervisão.
+- **Revisar de novo** (dentro de cada atividade) — regera o `.docx`/`.pdf` e
+  chama só o revisor pra aquela atividade (`/revisar <pasta>`), sem recoletar
+  a semana inteira.
+
+O comando disparado por esses dois últimos é configurável em `config.json` →
+`agente.comando` (por padrão, `claude`). Um colega que use outro agente/modelo
+troca esse valor por um wrapper próprio, desde que ele aceite
+`-p "<prompt>"` e herde os mesmos `agente.flags`.
+
+---
+
 ## O revisor
 
 Depois de cada entrega, o agente `revisor-academico` lê o enunciado, a rubrica e os
@@ -172,24 +215,36 @@ O `.docx` sai pronto no template, mas o texto é rascunho de IA: leia antes de e
 ```
 scripts/
 ├── coletar.js          Canvas → entregas/<Materia>/<Tipo> Semana NN/_contexto/
-├── relatorio.js        relatorio.md → .docx no template
+├── relatorio.js        relatorio.md → .docx (+ .pdf) no template
+├── resumo.js           monta o _RESUMO-<data>.md a partir do que está em disco
 ├── cursos.js           lista os cursos e sugere os apelidos
-├── autoteste.js        22 checagens offline do pipeline
+├── painel.js           servidor do dashboard local (API + estático de painel/dist)
+├── autoteste.js        checagens offline do pipeline
 ├── rodar-semana.ps1    execução headless (chamada pelo agendador)
 ├── agendar.ps1         registra/remove a tarefa de quarta
 └── lib/
     ├── canvas.js       cliente REST do Canvas, com paginação
     ├── docx.js         preenche o template a partir de markdown
+    ├── mermaid.js      ```mermaid → PNG (Chrome local via puppeteer-core)
+    ├── codigo.js       bloco de código → imagem estilizada
+    ├── pdfExport.js    .docx → .pdf (LibreOffice headless)
+    ├── status.js       veredito/pendências/desatualizado de uma atividade
     ├── zip.js          leitor/escritor ZIP (sem dependências)
     └── util.js         semana, tipo, HTML→markdown, nomes de pasta
 
+painel/                 dashboard (React + Tailwind + shadcn/ui, build com Vite)
+
 .claude/
-├── commands/atividades.md        o fluxo da rodada semanal
+├── commands/atividades.md        a rodada semanal inteira
+├── commands/revisar.md           regera + revisa uma atividade só
 ├── agents/revisor-academico.md   o revisor
 └── settings.json                 permissões para rodar sem prompt
 ```
 
-Zero dependências npm — só Node 18+ e o PowerShell do Windows.
+`scripts/` usa Node 18+ com poucas dependências (mermaid, puppeteer-core, marked —
+todas pra transformar o relatório em `.docx`/`.pdf`). `painel/` é um projeto
+à parte, com seu próprio `node_modules` (o toolchain do React/Tailwind/shadcn
+não precisa inchar o back-end).
 
 ## Markdown aceito no `relatorio.md`
 

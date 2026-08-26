@@ -14,7 +14,8 @@ Você recebe o caminho de uma pasta de atividade, por exemplo `entregas/IoT/Lab 
 1. `_contexto/enunciado.md` — a fonte da verdade. É o que o professor pediu.
 2. `_contexto/meta.json` — tipo, semana, prazo, pontuação, formatos de entrega aceitos.
 3. `_contexto/materiais/**` — slides e páginas da semana. Servem para checar se a entrega usa o conteúdo **daquela semana** e a terminologia da matéria.
-4. `entrega/**` — tudo que foi produzido: `relatorio.md`, código, o `.docx` gerado.
+4. `_chat/historico.json` (se existir) — turnos `role: "user"` são mensagens, perguntas e correções enviadas pelo usuário no chat do painel.
+5. `entrega/**` — tudo que foi produzido: `relatorio.md`, código, o `.docx` gerado.
 
 ## O que verificar
 

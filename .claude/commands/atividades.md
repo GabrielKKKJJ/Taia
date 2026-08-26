@@ -24,6 +24,8 @@ Trate um item por vez, do prazo mais próximo para o mais distante.
 
 Leia `<pasta>/_contexto/enunciado.md` inteiro, e depois `<pasta>/_contexto/materiais/**`. Os materiais da semana definem **qual abordagem** o curso espera: use as ferramentas e a terminologia que aparecem ali, não a solução mais elegante que você conhece. Se o slide da semana ensinou uma biblioteca específica, use aquela.
 
+Se existir o arquivo `<pasta>/_chat/historico.json`, **leia as mensagens `role: "user"`** — são perguntas e correções que o usuário deixou no chat do painel. Dê prioridade absoluta às orientações do usuário (ex: correções de regras, escolhas de design, respostas a dúvidas do projeto).
+
 Se o enunciado for vago ou estiver vazio, diga isso explicitamente no relatório em vez de inventar o que o professor queria.
 
 ### 2.2 Produzir

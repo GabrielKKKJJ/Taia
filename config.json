@@ -45,5 +45,11 @@
   "pdf": {
     "gerar": true
   },
-  "_pdf": "Converte o .docx gerado para .pdf com o LibreOffice (soffice --convert-to pdf). A entrega final e o PDF."
+  "_pdf": "Converte o .docx gerado para .pdf com o LibreOffice (soffice --convert-to pdf). A entrega final e o PDF.",
+  "agente": {
+    "comando": "claude",
+    "flags": ["--permission-mode", "acceptEdits"],
+    "streamJson": true
+  },
+  "_agente": "Comando que o painel dispara para 'Rodar rodada' (/atividades) e 'Revisar de novo' (/revisar <pasta>). Troque 'comando' por um wrapper proprio se quiser usar outro agente/modelo — precisa aceitar '-p \"<prompt>\"' e herdar os mesmos flags. streamJson: true pede '--output-format stream-json --verbose' pro CLI da Claude e traduz os eventos em linhas de progresso legiveis no log do painel, em vez de ficar mudo ate o resultado final. Desligue se o 'comando' customizado nao entender essas flags."
 }

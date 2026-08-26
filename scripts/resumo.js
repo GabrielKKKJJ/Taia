@@ -10,6 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { formatarData } = require('./lib/util');
+const { veredito, pendencias, entregavelDesatualizado, entregaveis } = require('./lib/status');
 
 const RAIZ = path.resolve(__dirname, '..');
 const cfg = JSON.parse(fs.readFileSync(path.join(RAIZ, 'config.json'), 'utf8'));
@@ -31,77 +32,6 @@ const fila = JSON.parse(fs.readFileSync(arqFila, 'utf8'));
 
 const itens = fila.itens.filter((i) => !filtroSemanas.length || filtroSemanas.includes(i.semana));
 
-/** Le o veredito gravado pelo revisor, se houver. */
-function veredito(pasta) {
-  const arq = path.join(RAIZ, pasta, '_revisao.md');
-  if (!fs.existsSync(arq)) return { texto: '—', data: null };
-  const t = fs.readFileSync(arq, 'utf8');
-  const v = t.match(/\*\*Veredito:\*\*\s*([^\n*]+)/);
-  const d = t.match(/\*\*Revisado em:\*\*\s*([^\n*]+)/);
-  return {
-    texto: v ? v[1].trim() : '—',
-    data: d ? d[1].trim() : null,
-    // Revisao anterior a ultima edicao do relatorio esta desatualizada.
-    desatualizada: (() => {
-      const rel = path.join(RAIZ, pasta, 'entrega', 'relatorio.md');
-      if (!fs.existsSync(rel)) return false;
-      return fs.statSync(rel).mtimeMs > fs.statSync(arq).mtimeMs + 60_000;
-    })(),
-  };
-}
-
-function pendencias(pasta) {
-  const arq = path.join(RAIZ, pasta, '_pendencias.md');
-  if (!fs.existsSync(arq)) return [];
-  return fs.readFileSync(arq, 'utf8')
-    .split(/^## /m).slice(1)
-    .map((b) => {
-      const linhas = b.split('\n');
-      const titulo = linhas[0].replace(/^\d+\.\s*/, '').trim();
-      if (titulo) return titulo;
-      // Bloco sem titulo: cai para a primeira linha de conteudo.
-      const corpo = linhas.slice(1).find((l) => l.trim()) || '';
-      return corpo
-        .replace(/^>?\s*\[?(PENDENTE|BLOQUEANTE)\]?:?\s*/i, '')
-        .replace(/[[\]*`]/g, '')
-        .trim()
-        .slice(0, 90);
-    })
-    // Secoes informativas do arquivo nao sao pendencia.
-    .filter((t) => t && !/^j[aá] resolvido/i.test(t));
-}
-
-/**
- * O .docx e gerado a partir do relatorio.md. Se o markdown foi editado depois,
- * o arquivo que seria entregue esta desatualizado — erro silencioso e facil de
- * cometer, porque os dois existem e parecem certos.
- */
-function docxDesatualizado(pasta) {
-  const dir = path.join(RAIZ, pasta, 'entrega');
-  const rel = path.join(dir, 'relatorio.md');
-  if (!fs.existsSync(dir) || !fs.existsSync(rel)) return false;
-
-  const docx = fs.readdirSync(dir).filter((f) => f.endsWith('.docx'));
-  if (!docx.length) return false;
-
-  const md = fs.statSync(rel).mtimeMs;
-  return docx.some((f) => fs.statSync(path.join(dir, f)).mtimeMs + 1000 < md);
-}
-
-function entregaveis(pasta) {
-  const dir = path.join(RAIZ, pasta, 'entrega');
-  if (!fs.existsSync(dir)) return [];
-  const achados = [];
-  (function anda(d) {
-    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
-      const p = path.join(d, e.name);
-      if (e.isDirectory()) anda(p);
-      else achados.push(path.relative(dir, p).replace(/\\/g, '/'));
-    }
-  })(dir);
-  return achados;
-}
-
 const hoje = new Date();
 const stamp = hoje.toISOString().slice(0, 10);
 
@@ -119,10 +49,10 @@ const todasPendencias = [];
 const desatualizados = [];
 
 for (const i of itens.sort((a, b) => new Date(a.prazo) - new Date(b.prazo))) {
-  const arqs = entregaveis(i.pasta);
-  const v = veredito(i.pasta);
-  const p = pendencias(i.pasta);
-  const velho = docxDesatualizado(i.pasta);
+  const arqs = entregaveis(RAIZ, i.pasta);
+  const v = veredito(RAIZ, i.pasta);
+  const p = pendencias(RAIZ, i.pasta);
+  const velho = entregavelDesatualizado(RAIZ, i.pasta);
   if (velho) desatualizados.push(i);
 
   if (!arqs.length) semEntrega.push(i);

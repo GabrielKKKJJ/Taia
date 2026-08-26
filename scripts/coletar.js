@@ -15,7 +15,7 @@ const { Canvas } = require('./lib/canvas');
 const {
   nomeSeguro, slug, pad2, garantirPasta, detectarSemana, detectarTipo,
   htmlParaMarkdown, extrairArquivos, arquivoUtil, prioridadeArquivo,
-  formatarData, carregarEnv,
+  formatarData, carregarEnv, materiaDe,
 } = require('./lib/util');
 
 const RAIZ = path.resolve(__dirname, '..');
@@ -38,11 +38,6 @@ const MAX_BYTES = (cfg.limites?.maxMbPorArquivo || 40) * 1024 * 1024;
 const MAX_ARQ = cfg.limites?.maxArquivosPorAtividade || 15;
 
 const log = (...a) => console.log(...a);
-
-function materiaDe(curso) {
-  const ap = cfg.cursos?.apelidos?.[String(curso.id)];
-  return nomeSeguro(ap || curso.course_code || curso.name || `curso-${curso.id}`, 40);
-}
 
 /** Indexa os modulos por assignment id, para achar o material da semana. */
 function indexarModulos(modulos) {
@@ -278,7 +273,7 @@ async function processarTarefa(canvas, curso, tarefa, modulo, materia, { tipo, s
   const fila = [];
 
   for (const curso of cursos) {
-    const materia = materiaDe(curso);
+    const materia = materiaDe(curso, cfg.cursos?.apelidos);
     let tarefas;
     try {
       tarefas = await canvas.tarefas(curso.id);
