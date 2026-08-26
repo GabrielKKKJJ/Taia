@@ -5,7 +5,10 @@ Toda quarta-feira: busca no Canvas da Jala as atividades da semana, junta o cont
 matéria/semana, gera o relatório no template `.docx` da faculdade e manda um **segundo
 agente de IA revisar** cada entrega contra o enunciado.
 
-**Nada é enviado ao Canvas.** Tudo fica no disco para você conferir e submeter à mão.
+Por padrão, nada é enviado ao Canvas — a entrega fica no disco pra você conferir e
+submeter à mão. O painel web tem um botão **Entregar no Canvas** que manda de
+verdade (upload + submissão oficial), mas só quando você clica e confirma; nada
+disso acontece sozinho durante a rodada automática.
 
 ---
 
@@ -28,8 +31,16 @@ entregas/
         │   ├── relatorio.md          fonte editável
         │   ├── Lab Semana 06 - IoT.docx
         │   └── src/                  código, se o lab pedir
+        ├── _chat/                    conversa do painel com essa atividade
+        │   ├── historico.json        mensagens (lidas por /atividades e pelo revisor)
+        │   ├── sessao.json           id da sessão do agente, pra manter contexto
+        │   └── anexos/               imagens/arquivos anexados no chat
         └── _revisao.md               parecer do agente revisor
 ```
+
+`entregas/` inteira é local — está no `.gitignore`, não faz parte do
+repositório. Um clone novo do Taia começa sem essa pasta; ela nasce ao rodar
+`npm run coletar` ou `/atividades` pela primeira vez.
 
 ---
 
@@ -70,9 +81,11 @@ Lista os cursos ativos e imprime um bloco JSON pronto. Cole em `config.json` →
 }
 ```
 
-### Passo 3 — CLI do Claude Code (só para a execução automática)
+### Passo 3 — CLI do Claude Code
 
-Rodando à mão pelo VSCode, não precisa. Para a tarefa agendada de quarta, sim:
+Rodando `/atividades` à mão pelo VSCode, não precisa instalar nada à parte. Mas
+é obrigatório para a tarefa agendada de quarta **e** para os botões do painel
+web que disparam o agente (Rodar rodada, Revisar de novo, chat da atividade):
 
 ```powershell
 npm install -g @anthropic-ai/claude-code
@@ -127,9 +140,9 @@ npm run teste                       # autoteste offline do gerador de .docx
 
 ## Painel web
 
-Um dashboard local (React + shadcn/ui) pra acompanhar tudo sem abrir o chat:
-status de cada atividade, relatório/pendências/revisão direto na tela, PDF, e
-botões que disparam a automação sozinha.
+Um dashboard local (React + shadcn/ui) pra acompanhar e mexer em tudo sem abrir
+o chat: status de cada atividade, relatório/pendências/revisão direto na tela,
+notas do Canvas, e um chat por atividade que corrige o relatório na hora.
 
 Primeira vez:
 
@@ -151,20 +164,46 @@ Depois de mexer no front (`painel/src/`), rode `npm run build` de novo pra
 publicar; em desenvolvimento, `cd painel && npm run dev` sobe com hot reload
 e recarrega a API do :4848 via proxy.
 
-Botões:
+### Aba Atividades
 
 - **Coletar do Canvas** / **Gerar resumo** — mesmos scripts do dia a dia.
 - **Rodar rodada** — dispara `/atividades` sozinho: coleta, escreve os
   relatórios, gera `.docx`/`.pdf` e chama o revisor, sem digitar nada no chat.
   Pede confirmação antes, porque edita o repositório sem supervisão.
-- **Revisar de novo** (dentro de cada atividade) — regera o `.docx`/`.pdf` e
-  chama só o revisor pra aquela atividade (`/revisar <pasta>`), sem recoletar
-  a semana inteira.
+- Abrindo uma atividade:
+  - **Regerar atividade** / **Revisar de novo** — o segundo regera o
+    `.docx`/`.pdf` e chama só o revisor pra aquela atividade
+    (`/revisar <pasta>`), sem recoletar a semana inteira.
+  - **Entregar no Canvas** — sobe o PDF (ou o `.docx`, se não houver PDF) e
+    submete oficialmente na tarefa do Canvas. Pede confirmação no navegador
+    antes de mandar; precisa que `_contexto/meta.json` exista (rode "Coletar
+    do Canvas" antes).
+  - **Limpar atividade** — apaga `entrega/`, `_revisao.md` e `_pendencias.md`
+    pra recomeçar do zero. Mantém o enunciado e os materiais.
+  - **Materiais** — sobe arquivos extras (prints, anotações, PDFs) pra
+    `_contexto/materiais/`, como contexto a mais pro agente considerar.
+  - **Chat da atividade** — conversa de verdade, com memória entre mensagens:
+    pergunte algo e ele só responde; peça uma correção e ele edita o
+    `relatorio.md` direto, na hora. Dá pra anexar imagem, PDF, texto ou
+    código — ele lê o anexo antes de responder. Fica salvo em
+    `<pasta>/_chat/`.
 
-O comando disparado por esses dois últimos é configurável em `config.json` →
-`agente.comando` (por padrão, `claude`). Um colega que use outro agente/modelo
-troca esse valor por um wrapper próprio, desde que ele aceite
-`-p "<prompt>"` e herde os mesmos `agente.flags`.
+### Aba Notas
+
+Notas atuais de cada matéria, puxadas direto do Canvas, com o detalhamento
+por atividade.
+
+### Aba Configurações
+
+Onde ficam o token do Canvas, as chaves de API (Anthropic, OpenAI, OpenRouter,
+Gemini — gravadas no `.env`) e a configuração do agente: qual comando/modelo
+os botões acima disparam. Equivale a editar `config.json` → `agente` e o
+`.env` na mão, só que pela tela.
+
+O comando disparado por "Rodar rodada", "Revisar de novo" e o chat é
+configurável em `config.json` → `agente.comando` (por padrão, `claude`). Um
+colega que use outro agente/modelo troca esse valor por um wrapper próprio,
+desde que ele aceite `-p "<prompt>"` e herde os mesmos `agente.flags`.
 
 ---
 
@@ -185,7 +224,9 @@ duas rodadas. Persistindo, o item entra no resumo como pendente de decisão sua.
 
 ## O que a automação **não** faz
 
-- **Não submete nada ao Canvas.** Você revisa e entrega.
+- **A rodada automática (`/atividades`, tarefa agendada) não submete nada ao
+  Canvas.** Você revisa e entrega — à mão, ou pelo botão **Entregar no
+  Canvas** do painel, que existe separado e pede confirmação antes de mandar.
 - **Não inventa resultado.** O que depende de rodar hardware, tirar print ou medir
   vira um marcador `> [PENDENTE: ...]` no relatório, e todos eles são listados no
   resumo da rodada. Essa é a sua lista de tarefas manuais.
@@ -223,7 +264,7 @@ scripts/
 ├── rodar-semana.ps1    execução headless (chamada pelo agendador)
 ├── agendar.ps1         registra/remove a tarefa de quarta
 └── lib/
-    ├── canvas.js       cliente REST do Canvas, com paginação
+    ├── canvas.js       cliente REST do Canvas — leitura com paginação, e envio/submissão (usado só pelo botão "Entregar no Canvas")
     ├── docx.js         preenche o template a partir de markdown
     ├── mermaid.js      ```mermaid → PNG (Chrome local via puppeteer-core)
     ├── codigo.js       bloco de código → imagem estilizada
