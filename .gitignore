@@ -6,9 +6,9 @@ logs/
 *.zip
 ~$*.docx
 
-# Material baixado do Canvas (slides e PDFs da faculdade).
-# Fica fora do repositorio: e conteudo da instituicao e se recupera com `npm run coletar`.
-entregas/**/_contexto/
+# Build do painel React: regenerado com `cd painel && npm run build`
+painel/dist/
 
-# Fila da rodada: regenerada a cada coleta
-entregas/_fila.json
+# Entregas dos alunos ficam so no disco local, nunca no repositorio do Taia —
+# e trabalho academico de quem usa a ferramenta, nao codigo da ferramenta.
+entregas/
