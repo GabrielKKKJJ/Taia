@@ -125,20 +125,30 @@ class Canvas {
     if (!init1.ok) throw new Error(`Canvas upload init HTTP ${init1.status}: ${(await init1.text()).slice(0, 300)}`);
     const { upload_url, upload_params } = await init1.json();
 
-    // Passo 2: enviar o arquivo
+    // Passo 2: enviar o arquivo pro destino que o Canvas indicou. Precisa de
+    // redirect:'manual' — com o padrao ('follow'), o fetch segue o 3xx
+    // sozinho e o header Location (necessario pro passo 3, com autenticacao)
+    // deixa de aparecer na resposta.
     const form = new FormData();
     for (const [k, v] of Object.entries(upload_params || {})) form.append(k, v);
     form.append('file', new Blob([conteudo], { type: tipoMime }), nomeArquivo);
-    const up = await fetch(upload_url, { method: 'POST', body: form });
-    if (!up.ok && up.status !== 301 && up.status !== 302) {
+    const up = await fetch(upload_url, { method: 'POST', body: form, redirect: 'manual' });
+
+    let arq;
+    if (up.status >= 300 && up.status < 400) {
+      // Passo 3: confirmar seguindo o Location, com autenticacao do Canvas.
       const loc = up.headers.get('location');
-      if (!loc) throw new Error(`Canvas upload HTTP ${up.status}`);
+      if (!loc) throw new Error(`Canvas upload redirecionou (HTTP ${up.status}) sem header Location`);
+      const locAbsoluta = new URL(loc, upload_url).toString();
+      const conf = await fetch(locAbsoluta, { headers: this.cabecalhos });
+      if (!conf.ok) throw new Error(`Canvas upload confirm HTTP ${conf.status}: ${(await conf.text()).slice(0, 300)}`);
+      arq = await conf.json();
+    } else if (up.ok) {
+      // Alguns backends de armazenamento do Canvas respondem direto, sem redirect.
+      arq = await up.json();
+    } else {
+      throw new Error(`Canvas upload HTTP ${up.status}: ${(await up.text()).slice(0, 300)}`);
     }
-    // Passo 3: confirmar (seguir redirect ou usar location)
-    const loc = up.headers.get('location');
-    const conf = await fetch(loc || upload_url, { headers: this.cabecalhos });
-    if (!conf.ok) throw new Error(`Canvas upload confirm HTTP ${conf.status}`);
-    const arq = await conf.json();
     return arq.id;
   }
 
