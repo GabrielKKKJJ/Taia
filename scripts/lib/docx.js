@@ -13,6 +13,15 @@ const FONTE = 'Open Sans';
 const FONTE_MONO = 'Consolas';
 const LARGURA_MAX_EMU = 5400000; // ~ largura util da pagina A4 com margens padrao
 
+/** Acha o inicio da ultima <tag ...> (com ou sem atributos) antes de `ate`. */
+function ultimaAberturaDeTag(xml, tag, ate) {
+  const re = new RegExp(`<${tag}(?:\\s[^>]*)?>`, 'g');
+  let ultimo = -1;
+  let m;
+  while ((m = re.exec(xml)) && m.index < ate) ultimo = m.index;
+  return ultimo;
+}
+
 const esc = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;')
@@ -305,7 +314,13 @@ function gerarDocx({ template, saida, titulo, atividade, markdown, baseImagens }
   const { xml: corpo, imagens } = markdownParaWml(markdown || '', { baseImagens, proximoRid });
 
   const iMarcador = xml.indexOf(PLACEHOLDER_CORPO);
-  const iniPar = xml.lastIndexOf('<w:p>', iMarcador);
+  // Nao da pra usar lastIndexOf('<w:p>', ...) direto: o Word grava w14:paraId
+  // em cada paragrafo assim que o arquivo e salvo por ele (ex.: <w:p w14:paraId="...">),
+  // entao a tag raramente aparece sem atributos depois que alguem edita o
+  // template no Word. Sem esse cuidado, cai num <w:p> bem anterior (ou nenhum)
+  // e o titulo/corpo da atividade e inserido no paragrafo errado, em silencio.
+  const iniPar = ultimaAberturaDeTag(xml, 'w:p', iMarcador);
+  if (iniPar === -1) throw new Error(`Nao achei o paragrafo do marcador "${PLACEHOLDER_CORPO}" — template corrompido ou fora do padrao OOXML.`);
   const fimPar = xml.indexOf('</w:p>', iMarcador) + '</w:p>'.length;
   const parMarcador = xml.slice(iniPar, fimPar);
   const parTitulo = parMarcador.replace(PLACEHOLDER_CORPO, esc(atividade || 'Atividade'));
