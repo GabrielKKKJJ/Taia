@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, CalendarDays, LayoutGrid } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/StatusBadge'
 import { AtividadeSheet } from '@/components/AtividadeSheet'
+import { CalendarioAtividades } from '@/components/CalendarioAtividades'
 import { cn } from '@/lib/utils'
 import type { Atividade } from '@/lib/api'
 
@@ -74,6 +76,12 @@ export function AtividadesView({
 }: Props) {
   const [selecionada, setSelecionada] = useState<Atividade | null>(null)
   const [sheetAberto, setSheetAberto] = useState(false)
+  const [visao, setVisao] = useState<'lista' | 'calendario'>('lista')
+
+  const abrir = (a: Atividade) => {
+    setSelecionada(a)
+    setSheetAberto(true)
+  }
 
   const porMateria = useMemo(() => {
     const mapa = new Map<string, Atividade[]>()
@@ -106,32 +114,42 @@ export function AtividadesView({
   }
 
   return (
-    <div className="space-y-8">
-      {porMateria.map(([materia, lista]) => {
-        const prontas = lista.filter((a) => a.status === 'pronto').length
-        return (
-          <section key={materia} className="space-y-3">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{materia}</h2>
-              <span className="text-xs text-muted-foreground">
-                {prontas}/{lista.length} prontas
-              </span>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {lista.map((a) => (
-                <CardAtividade
-                  key={a.pasta}
-                  atividade={a}
-                  aoAbrir={() => {
-                    setSelecionada(a)
-                    setSheetAberto(true)
-                  }}
-                />
-              ))}
-            </div>
-          </section>
-        )
-      })}
+    <div className="space-y-6">
+      <div className="flex justify-end gap-1">
+        <Button size="sm" variant={visao === 'lista' ? 'secondary' : 'ghost'} onClick={() => setVisao('lista')}>
+          <LayoutGrid className="size-3.5" />
+          Lista
+        </Button>
+        <Button size="sm" variant={visao === 'calendario' ? 'secondary' : 'ghost'} onClick={() => setVisao('calendario')}>
+          <CalendarDays className="size-3.5" />
+          Calendário
+        </Button>
+      </div>
+
+      {visao === 'calendario' ? (
+        <CalendarioAtividades atividades={atividades} aoAbrir={abrir} />
+      ) : (
+        <div className="space-y-8">
+          {porMateria.map(([materia, lista]) => {
+            const prontas = lista.filter((a) => a.status === 'pronto').length
+            return (
+              <section key={materia} className="space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{materia}</h2>
+                  <span className="text-xs text-muted-foreground">
+                    {prontas}/{lista.length} prontas
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {lista.map((a) => (
+                    <CardAtividade key={a.pasta} atividade={a} aoAbrir={() => abrir(a)} />
+                  ))}
+                </div>
+              </section>
+            )
+          })}
+        </div>
+      )}
 
       <AtividadeSheet
         atividade={atual}
