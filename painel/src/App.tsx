@@ -7,12 +7,18 @@ import { NotasView } from '@/components/NotasView'
 import { ConfiguracoesView } from '@/components/ConfiguracoesView'
 import { LogDrawer } from '@/components/LogDrawer'
 import { useEventStream } from '@/lib/useEventStream'
-import { buscarAtividades, type Atividade } from '@/lib/api'
+import { buscarAtividades, buscarNotas, ehErro, type Atividade, type Notas } from '@/lib/api'
 
 export default function App() {
   const [atividades, setAtividades] = useState<Atividade[]>([])
   const [carregando, setCarregando] = useState(true)
   const { job, rodar, fechar } = useEventStream()
+
+  // As notas tambem sao buscadas aqui, junto com as atividades, em vez de
+  // esperar o usuario abrir a aba — assim ja estao prontas quando ele clicar.
+  const [notas, setNotas] = useState<Notas | null>(null)
+  const [notasErro, setNotasErro] = useState<string | null>(null)
+  const [notasCarregando, setNotasCarregando] = useState(true)
 
   const carregarAtividades = () => {
     setCarregando(true)
@@ -22,7 +28,20 @@ export default function App() {
     })
   }
 
-  useEffect(carregarAtividades, [])
+  const carregarNotas = (forcar: boolean) => {
+    setNotasCarregando(true)
+    setNotasErro(null)
+    buscarNotas(forcar).then((r) => {
+      if (ehErro(r)) setNotasErro(r.erro)
+      else setNotas(r)
+      setNotasCarregando(false)
+    })
+  }
+
+  useEffect(() => {
+    carregarAtividades()
+    carregarNotas(false)
+  }, [])
 
   const rodarERecarregar = (script: string, args: string[], titulo: string) =>
     rodar(script, args, titulo, carregarAtividades)
@@ -78,7 +97,12 @@ export default function App() {
           </TabsContent>
 
           <TabsContent value="notas">
-            <NotasView />
+            <NotasView
+              notas={notas}
+              erro={notasErro}
+              carregando={notasCarregando}
+              aoAtualizar={() => carregarNotas(true)}
+            />
           </TabsContent>
 
           <TabsContent value="configuracoes">

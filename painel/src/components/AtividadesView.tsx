@@ -76,7 +76,7 @@ export function AtividadesView({
 }: Props) {
   const [selecionada, setSelecionada] = useState<Atividade | null>(null)
   const [sheetAberto, setSheetAberto] = useState(false)
-  const [visao, setVisao] = useState<'lista' | 'calendario'>('lista')
+  const [visao, setVisao] = useState<'lista' | 'calendario'>('calendario')
 
   const abrir = (a: Atividade) => {
     setSelecionada(a)

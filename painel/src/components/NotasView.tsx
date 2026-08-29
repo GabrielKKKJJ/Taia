@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { buscarNotas, ehErro, type CursoNota, type Notas, type TarefaNota } from '@/lib/api'
+import type { CursoNota, Notas, TarefaNota } from '@/lib/api'
 
 function classeNota(nota: number | null, pontosPossiveis: number) {
   if (nota === null) return 'text-muted-foreground font-normal'
@@ -77,27 +76,18 @@ function CardCurso({ curso }: { curso: CursoNota }) {
   )
 }
 
-export function NotasView() {
-  const [notas, setNotas] = useState<Notas | null>(null)
-  const [erro, setErro] = useState<string | null>(null)
-  const [carregando, setCarregando] = useState(true)
+interface Props {
+  notas: Notas | null
+  erro: string | null
+  carregando: boolean
+  aoAtualizar: () => void
+}
 
-  const carregar = (forcar: boolean) => {
-    setCarregando(true)
-    setErro(null)
-    buscarNotas(forcar).then((r) => {
-      if (ehErro(r)) setErro(r.erro)
-      else setNotas(r)
-      setCarregando(false)
-    })
-  }
-
-  useEffect(() => carregar(false), [])
-
+export function NotasView({ notas, erro, carregando, aoAtualizar }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <Button size="sm" variant="outline" onClick={() => carregar(true)} disabled={carregando}>
+        <Button size="sm" variant="outline" onClick={aoAtualizar} disabled={carregando}>
           <RefreshCw className={cn('size-3.5', carregando && 'animate-spin')} />
           Atualizar notas
         </Button>
