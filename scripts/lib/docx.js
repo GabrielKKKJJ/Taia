@@ -14,6 +14,36 @@ const FONTE = 'Open Sans';
 const FONTE_MONO = 'Consolas';
 const LARGURA_MAX_EMU = 5400000; // ~ largura util da pagina A4 com margens padrao
 
+// O <w:document> do template precisa declarar estes namespaces porque as
+// imagens que este arquivo insere usam tags wp:/a:/pic:. O Word as vezes
+// remove uma declaracao "sem uso aparente" ao resalvar o arquivo — e como o
+// documento fica sem nenhuma imagem embutida ainda nesse momento, ele nao
+// percebe que vai precisar. Sem isso, o XML gerado fica invalido (prefixo
+// sem vinculo) e o LibreOffice se recusa a abrir pra converter em PDF,
+// terminando com codigo 0 como se nada tivesse dado errado.
+const NAMESPACES_NECESSARIOS = {
+  w: 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+  wp: 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing',
+  a: 'http://schemas.openxmlformats.org/drawingml/2006/main',
+  pic: 'http://schemas.openxmlformats.org/drawingml/2006/picture',
+  r: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+};
+
+function garantirNamespaces(xml) {
+  const iAbre = xml.indexOf('<w:document');
+  const iFecha = xml.indexOf('>', iAbre);
+  if (iAbre === -1 || iFecha === -1) return xml;
+
+  const raiz = xml.slice(iAbre, iFecha);
+  const faltando = Object.entries(NAMESPACES_NECESSARIOS)
+    .filter(([prefixo]) => !raiz.includes(`xmlns:${prefixo}=`))
+    .map(([prefixo, uri]) => ` xmlns:${prefixo}="${uri}"`)
+    .join('');
+  if (!faltando) return xml;
+
+  return xml.slice(0, iFecha) + faltando + xml.slice(iFecha);
+}
+
 /** Acha o inicio da ultima <tag ...> (com ou sem atributos) antes de `ate`. */
 function ultimaAberturaDeTag(xml, tag, ate) {
   const re = new RegExp(`<${tag}(?:\\s[^>]*)?>`, 'g');
@@ -303,6 +333,7 @@ function gerarDocx({ template, saida, titulo, atividade, markdown, baseImagens, 
 
   let xml = doc.dados.toString('utf8');
   let xmlRels = rels.dados.toString('utf8');
+  xml = garantirNamespaces(xml);
 
   if (!xml.includes(PLACEHOLDER_CORPO)) {
     throw new Error(`Template sem o marcador "${PLACEHOLDER_CORPO}" — o gerador nao sabe onde inserir o conteudo.`);
