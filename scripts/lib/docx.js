@@ -8,6 +8,7 @@ const { realcar } = require('./realce');
 
 const PLACEHOLDER_TITULO = '[Tarefa ou Labortatorio x] - [Materia]';
 const PLACEHOLDER_CORPO = '[atividade]';
+const PLACEHOLDER_ALUNO = '[Aluno ou Grupo]: [Nome do Aluno ou Nome do Grupo]';
 
 const FONTE = 'Open Sans';
 const FONTE_MONO = 'Consolas';
@@ -288,8 +289,9 @@ function markdownParaWml(md, { baseImagens, proximoRid }) {
  * @param {string} o.atividade  substitui "[atividade]" (titulo grande da atividade)
  * @param {string} o.markdown   corpo do relatorio
  * @param {string} [o.baseImagens] pasta base para resolver caminhos de imagem
+ * @param {string} [o.alunoOuGrupo] substitui "[Aluno ou Grupo]: [Nome...]" — ex.: "Aluno: Fulano" ou "Grupo: Fulano, Beltrano"
  */
-function gerarDocx({ template, saida, titulo, atividade, markdown, baseImagens }) {
+function gerarDocx({ template, saida, titulo, atividade, markdown, baseImagens, alunoOuGrupo }) {
   if (!fs.existsSync(template)) throw new Error(`Template nao encontrado: ${template}`);
   const entradas = lerZip(fs.readFileSync(template));
 
@@ -308,6 +310,12 @@ function gerarDocx({ template, saida, titulo, atividade, markdown, baseImagens }
 
   // 1) titulo da capa
   xml = xml.replace(PLACEHOLDER_TITULO, esc(titulo || PLACEHOLDER_TITULO));
+
+  // 1b) "Aluno: Fulano" ou "Grupo: Fulano, Beltrano" — opcional: templates
+  // antigos ainda tem o nome fixo direto na capa, sem esse marcador.
+  if (alunoOuGrupo && xml.includes(PLACEHOLDER_ALUNO)) {
+    xml = xml.replace(PLACEHOLDER_ALUNO, esc(alunoOuGrupo));
+  }
 
   // 2) corpo: troca o paragrafo do marcador pelo titulo da atividade + conteudo
   const proximoRid = 900;

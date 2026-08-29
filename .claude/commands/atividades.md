@@ -35,6 +35,8 @@ Escreva em `<pasta>/entrega/`:
 - **`relatorio.md`** — o relatório. Se o enunciado define seções obrigatórias, **as seções do enunciado mandam**. Não havendo, use: Objetivo · Fundamentação teórica · Materiais e ambiente · Desenvolvimento · Resultados · Discussão · Dificuldades · Conclusão · Referências.
 - **Código, diagramas e arquivos** que o enunciado pedir, em subpastas (`entrega/src/`, `entrega/diagramas/`).
 
+Se o enunciado indicar que a entrega é **em grupo** (ex.: capstone, projeto final), acrescente `grupo: "Nome1, Nome2, ..."` no cabeçalho `---` do `relatorio.md` — isso faz a capa do `.docx` mostrar "Grupo: ..." em vez de "Aluno: ...". Se você souber que é em grupo mas não souber os nomes dos integrantes, escreva `grupo: PENDENTE` — a capa continua mostrando o aluno individual (nunca um marcador cru), e uma pendência de verdade é registrada em `_pendencias.md` pedindo pro usuário preencher. Sem esse campo, a capa sai como "Aluno: <nome do config.json>" — o padrão pra entregas individuais.
+
 **Faça só o obrigatório.** Entregue o que o enunciado exige para pontuar e pare aí:
 
 - Onde o enunciado oferece alternativas ("paho-mqtt **ou outra**", "RabbitMQ, Mosquitto, emqx **ou outros**"), escolha **uma** — a que aparece nos materiais da semana — e não implemente as outras.

@@ -169,9 +169,21 @@ function extrairMermaid(markdown, pastaAssets) {
     markdown = markdown.slice(mFrente[0].length);
   }
 
+  // "Aluno: Fulano" (padrao) ou "Grupo: Fulano, Beltrano" (cabecalho grupo: "...").
+  // grupo: PENDENTE sinaliza que a atividade e em grupo mas os nomes ainda
+  // nao foram preenchidos — nao aparece assim na capa, vira pendencia real.
+  // O parser do cabecalho nao entende aspas de YAML, entao tira um par se vier assim.
+  const grupo = frente.grupo ? frente.grupo.replace(/^(["'])(.*)\1$/, '$2') : frente.grupo;
+  let alunoOuGrupo = `Aluno: ${cfg.aluno}`;
+  const pendenciaGrupo = grupo && /^pendente$/i.test(grupo)
+    ? 'Esta atividade parece ser em grupo. Preencha `grupo: "Nome1, Nome2, ..."` no cabeçalho do relatorio.md com os nomes dos integrantes antes de entregar.'
+    : null;
+  if (grupo && !pendenciaGrupo) alunoOuGrupo = `Grupo: ${grupo}`;
+
   // 1) Pendencias saem do documento e viram arquivo separado.
   const { limpo, pendencias } = separarPendencias(markdown);
   markdown = limpo;
+  if (pendenciaGrupo) pendencias.push(pendenciaGrupo);
 
   const arqPendencias = path.join(pasta, '_pendencias.md');
   if (pendencias.length) {
@@ -255,6 +267,7 @@ function extrairMermaid(markdown, pastaAssets) {
     saida,
     titulo,
     atividade,
+    alunoOuGrupo,
     markdown,
     baseImagens: path.dirname(arqMd),
   });
@@ -262,6 +275,7 @@ function extrairMermaid(markdown, pastaAssets) {
   console.log(`Relatorio gerado: ${path.relative(RAIZ, r.saida)}`);
   console.log(`  Titulo da capa: ${titulo}`);
   console.log(`  Atividade:      ${atividade}`);
+  console.log(`  ${alunoOuGrupo}${pendenciaGrupo ? ' (nomes do grupo pendentes — ver _pendencias.md)' : ''}`);
   if (blocos.length) console.log(`  Diagramas mermaid: ${diagramasOk}/${blocos.length} renderizados`);
   if (trechos.length) console.log(`  Blocos de codigo: ${codigoOk}/${trechos.length} como imagem`);
   falhas.forEach((f) => console.log(`  ! diagrama falhou: ${f}`));
